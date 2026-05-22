@@ -2,14 +2,16 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Polish Natural Tones Theme Colors (Sage, Taupe, Clean Cream, Warm Clay)
-val OceanBlue = Color(0xFF4A634E)      // Forest Sage Green (Primary Brand Accent)
-val OceanLight = Color(0xFFDDE8DB)     // Warm Green Accent Tint (Secondary Container)
-val AccentCoral = Color(0xFF7D7767)    // Taupe/Soil Earthy Brown (Tertiary)
-val SlateDark = Color(0xFF232019)      // Organic Deep Coffee-Brown/Black for titles/text
-val SlateBlueText = Color(0xFF5A5242)  // Clean Muted Soil Brown for body copy
-val MintGreen = Color(0xFF448B50)      // Sage/Mint Green status approved
-val WarmAmber = Color(0xFFD49C3D)      // Muted Ochre/Amber status requested
-val SoftGray = Color(0xFFF2ECE4)       // Soft Tan/Warm Beige for card background / welcome tiles
-val DarkBlueCard = Color(0xFFE8DDCF)   // Warm Clay accent border/background block
-
+// ----------------------------------------------------
+// ULTRA-LUXURY ALABASTER CREAM & MIAMI SKY BLUE PALETTE
+// Inspired by elite bespoke luxury vehicles (Porsche Chalk cream / Rolls-Royce Riviera Blue)
+// ----------------------------------------------------
+val OceanBlue = Color(0xFF0EA5E9)      // Iconic Miami Riviera Sky Blue (Primary Accent)
+val OceanLight = Color(0xFFE0F2FE)     // Soft Sky Ceramic Glow (Secondary Container Background)
+val AccentCoral = Color(0xFFF43F5E)    // Track Rose Red (Performance Accent)
+val SlateDark = Color(0xFF0F172A)      // Deep Absolute Midnight Indigo (Title & Text)
+val SlateBlueText = Color(0xFF475569)  // Tailored Slate Steel (Body Copy / Secondary Info)
+val MintGreen = Color(0xFF0D9488)      // Emerald Racing Green (Active status badge)
+val WarmAmber = Color(0xFFD97706)      // Sahara Bronze Orange (Pending state badge)
+val SoftGray = Color(0xFFF5F1E9)       // Rich Ivory Cream Card Interiors
+val DarkBlueCard = Color(0xFFFAF7F2)   // Premium Alabaster Cream App Canvas Background

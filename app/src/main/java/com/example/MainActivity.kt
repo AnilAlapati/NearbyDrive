@@ -5,9 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -446,7 +448,7 @@ fun HeaderView(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 20.dp),
+            .padding(horizontal = 24.dp, vertical = 20.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -458,44 +460,49 @@ fun HeaderView(
                     tint = OceanBlue,
                     modifier = Modifier.size(24.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "NearbyDrive",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    text = "NEARBYDRIVE",
+                    fontSize = 21.sp,
+                    fontWeight = FontWeight.Light,
                     color = MaterialTheme.colorScheme.onBackground,
-                    fontFamily = FontFamily.SansSerif
+                    fontFamily = FontFamily.SansSerif,
+                    letterSpacing = 4.sp
                 )
             }
             Text(
-                text = "Co-sharing rides in your housing society",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.61f)
+                text = "L U X U R Y   E S T A T E   S H A R I N G",
+                fontSize = 8.5.sp,
+                fontWeight = FontWeight.Bold,
+                color = SlateBlueText,
+                letterSpacing = 1.2.sp,
+                modifier = Modifier.padding(top = 2.dp)
             )
         }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Dropdown Country Selector Chip
             Box {
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(OceanLight.copy(alpha = 0.5f))
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(OceanLight)
+                        .border(1.dp, OceanBlue.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
                         .clickable { showCountryMenu = true }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .padding(horizontal = 12.dp, vertical = 7.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = if (selectedCountry == "IN") "🇮🇳 IN" else "🇺🇸 US",
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            color = OceanBlue
+                            fontWeight = FontWeight.Bold,
+                            color = OceanBlue,
+                            letterSpacing = 0.5.sp
                         )
-                        Spacer(modifier = Modifier.width(2.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Icon(
                             Icons.Filled.ArrowDropDown,
                             contentDescription = "Select country",
@@ -531,9 +538,10 @@ fun HeaderView(
                 if (it.name.isNotBlank()) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(OceanLight)
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .border(1.dp, OceanBlue.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 7.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -542,12 +550,13 @@ fun HeaderView(
                                 tint = OceanBlue,
                                 modifier = Modifier.size(13.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "${it.block}-${it.flat}",
+                                text = "${it.block}-${it.flat}".uppercase(),
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = OceanBlue
+                                fontWeight = FontWeight.Bold,
+                                color = OceanBlue,
+                                letterSpacing = 0.5.sp
                             )
                         }
                     }
@@ -566,17 +575,23 @@ fun NeighborChip(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(if (selected) OceanBlue else SoftGray)
+            .border(
+                width = 1.dp,
+                color = if (selected) OceanBlue else SlateBlueText.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(8.dp)
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 18.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = label,
+            text = label.uppercase(),
             color = if (selected) Color.White else SlateBlueText,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp
         )
     }
 }
@@ -771,11 +786,12 @@ fun VehicleCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("vehicle_card_${vehicle.id}"),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = BorderStroke(1.dp, OceanBlue.copy(alpha = 0.12f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column {
             // Elegant Visual Representation and Title
@@ -790,22 +806,18 @@ fun VehicleCard(
                 Box(
                     modifier = Modifier
                         .padding(12.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.White.copy(alpha = 0.85f))
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(SlateDark.copy(alpha = 0.82f))
+                        .border(1.dp, OceanBlue.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                         .align(Alignment.TopStart)
                 ) {
                     Text(
                         text = vehicle.type.uppercase(),
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = when (vehicle.type) {
-                            "Car" -> Color(0xFF354B3E)      // Forest Green
-                            "Bike" -> Color(0xFF5A4432)     // Chocolate Mud
-                            "Scooter" -> Color(0xFF6B5B3E)  // Ochre Olive
-                            "Bicycle" -> Color(0xFF7A3E2B)  // Dark Terracotta
-                            else -> Color(0xFF4C4A42)
-                        }
+                        color = OceanBlue,
+                        letterSpacing = 1.sp
                     )
                 }
 
@@ -814,16 +826,17 @@ fun VehicleCard(
                     Box(
                         modifier = Modifier
                             .padding(12.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(6.dp))
                             .background(OceanBlue)
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .padding(horizontal = 9.dp, vertical = 4.dp)
                             .align(Alignment.TopEnd)
                     ) {
                         Text(
                             text = "MY LISTING",
-                            fontSize = 10.sp,
+                            fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = Color.White,
+                            letterSpacing = 0.5.sp
                         )
                     }
                 }
@@ -833,8 +846,9 @@ fun VehicleCard(
                     Box(
                         modifier = Modifier
                             .padding(12.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF2E7D32)) // Forest Green
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF2E7D32).copy(alpha = 0.9f))
+                            .border(1.dp, Color(0xFFADC2A9).copy(alpha = 0.4f), RoundedCornerShape(6.dp))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                             .align(if (isMine) Alignment.BottomEnd else Alignment.TopEnd)
                     ) {
@@ -846,13 +860,14 @@ fun VehicleCard(
                                 Icons.Filled.Bolt,
                                 contentDescription = "Electric Vehicle",
                                 tint = Color.White,
-                                modifier = Modifier.size(12.dp)
+                                modifier = Modifier.size(11.dp)
                             )
                             Text(
                                 text = "EV",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Black,
-                                color = Color.White
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                letterSpacing = 0.5.sp
                             )
                         }
                     }
@@ -869,13 +884,14 @@ fun VehicleCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = vehicle.model,
-                            fontSize = 18.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            letterSpacing = 0.2.sp
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 Icons.Filled.LocationOn,
@@ -886,8 +902,8 @@ fun VehicleCard(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "Lent by ${vehicle.ownerName} (★ 4.8 • ${config.blockLabel} ${vehicle.ownerBlock} • ${config.flatLabel} ${vehicle.ownerFlat})",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
+                                fontSize = 11.5.sp,
+                                color = SlateBlueText,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -898,32 +914,34 @@ fun VehicleCard(
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = "${config.currency}${vehicle.rentPerHour.toInt()}",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Black,
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.Bold,
                             color = OceanBlue
                         )
                         Text(
                             text = "/ hour",
-                            fontSize = 10.sp,
-                            color = SlateBlueText.copy(alpha = 0.6f),
-                            fontWeight = FontWeight.Bold
+                            fontSize = 9.5.sp,
+                            color = SlateBlueText,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                HorizontalDivider(color = SlateBlueText.copy(alpha = 0.1f))
+                HorizontalDivider(color = SlateBlueText.copy(alpha = 0.12f))
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
                     text = vehicle.desc,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+                    fontSize = 12.5.sp,
+                    color = SlateBlueText,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 10.dp),
+                    lineHeight = 17.sp
                 )
 
                 // Status and Info Row
@@ -932,54 +950,63 @@ fun VehicleCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 Icons.Filled.DateRange,
                                 contentDescription = "Availability Details",
-                                tint = SlateBlueText.copy(alpha = 0.5f),
-                                modifier = Modifier.size(14.dp)
+                                tint = SlateBlueText.copy(alpha = 0.6f),
+                                modifier = Modifier.size(13.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
                                 text = vehicle.availabilityHours,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = SlateBlueText.copy(alpha = 0.6f)
+                                color = SlateBlueText
                             )
                         }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 2.dp)
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 Icons.Filled.Info,
                                 contentDescription = "Reg No",
-                                tint = SlateBlueText.copy(alpha = 0.5f),
-                                modifier = Modifier.size(14.dp)
+                                tint = SlateBlueText.copy(alpha = 0.6f),
+                                modifier = Modifier.size(13.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Reg: ${vehicle.regNumber}",
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = SlateBlueText.copy(alpha = 0.6f)
-                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(OceanLight)
+                                    .border(1.dp, OceanBlue.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = vehicle.regNumber,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = SlateDark,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
                         }
                     }
 
                     if (vehicle.status == "Rented") {
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(6.dp))
                                 .background(AccentCoral.copy(alpha = 0.15f))
-                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                                .border(1.dp, AccentCoral.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 14.dp, vertical = 7.dp)
                         ) {
                             Text(
                                 "RENTED OUT",
                                 color = AccentCoral,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
                             )
                         }
                     } else if (isMine) {
@@ -990,25 +1017,29 @@ fun VehicleCard(
                                 disabledContainerColor = SoftGray,
                                 disabledContentColor = SlateBlueText.copy(alpha = 0.4f)
                             ),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(6.dp)
                         ) {
-                            Text("Your listing")
+                            Text("YOURS", fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
                         }
                     } else {
                         Button(
                             onClick = onBookClicked,
-                            colors = ButtonDefaults.buttonColors(containerColor = OceanBlue),
-                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = OceanBlue,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(6.dp),
                             modifier = Modifier.testTag("book_button_${vehicle.id}")
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     Icons.Default.DirectionsCar,
                                     contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(15.dp),
+                                    tint = Color.White
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Rent Now", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("RENT", fontWeight = FontWeight.Bold, fontSize = 12.sp, letterSpacing = 1.sp)
                             }
                         }
                     }
@@ -1018,71 +1049,208 @@ fun VehicleCard(
     }
 }
 
+private data class LuxuryBannerConfig(
+    val gradientColors: List<Color>,
+    val icon: java.lang.Object?, // We will use Any or just specify elements directly
+    val iconVector: ImageVector,
+    val tintColor: Color,
+    val performanceLabel: String
+)
+
 // Custom vehicle drawing using Compose Canvas (no assets dependencies)
 @Composable
 fun VehicleVisualBanner(type: String) {
-    val (gradientColors, icon, tintColor) = when (type) {
-        "Car" -> Triple(
-            listOf(Color(0xFFE2EFE0), Color(0xFFC2DCC0)),
+    val config = when (type) {
+        "Car" -> LuxuryBannerConfig(
+            listOf(Color(0xFFFAF7F2), Color(0xFFECE5D8)), // Exquisite Alabaster Cream
+            null,
             Icons.Filled.DirectionsCar,
-            Color(0xFF2C4C38)
+            OceanBlue, // Miami Riviera Sky Blue (Primary)
+            "4.0L TWIN-TURBO FLAT-6 • ACTIVE AERODYNAMICS"
         )
-        "Bike" -> Triple(
-            listOf(Color(0xFFFAF2E9), Color(0xFFE8D5C4)),
+        "Bike" -> LuxuryBannerConfig(
+            listOf(Color(0xFFE0F2FE), Color(0xFFF5F9FC)), // Ice-cream Sky Blue satin
+            null,
             Icons.Filled.TwoWheeler,
-            Color(0xFF5E4533)
+            Color(0xFF0284C7), // Sky Blue Custom
+            "1250CC DESMOSEDICI REVO SPORT SPECIAL"
         )
-        "Scooter" -> Triple(
-            listOf(Color(0xFFFAF7E6), Color(0xFFEBE3BD)),
+        "Scooter" -> LuxuryBannerConfig(
+            listOf(Color(0xFFF0FDF4), Color(0xFFE0F2FE)), // Mint & Sky Cream
+            null,
             Icons.Filled.Moped,
-            Color(0xFF6B5824)
+            Color(0xFF0D9488), // Sky Mint Emerald
+            "75KW SOLID-STATE ULTRA HIGH EFFICIENCY"
         )
-        "Bicycle" -> Triple(
-            listOf(Color(0xFFFAF0EB), Color(0xFFEBD2C4)),
+        "Bicycle" -> LuxuryBannerConfig(
+            listOf(Color(0xFFFFF1F2), Color(0xFFFCFAF7)), // Sand & Track Rose
+            null,
             Icons.Filled.PedalBike,
-            Color(0xFF7A3E25)
+            Color(0xFFF43F5E), // Performance Coral Red
+            "CARBON MONOCOQUE SPORT CHASSIS"
         )
-        else -> Triple(
-            listOf(Color(0xFFF5F5F5), Color(0xFFDDDDDD)),
+        else -> LuxuryBannerConfig(
+            listOf(Color(0xFFFAF7F2), Color(0xFFE0F2FE)), // Cream & Sky
+            null,
             Icons.Filled.ElectricScooter,
-            Color(0xFF4C4A42)
+            Color(0xFF0284C7),
+            "INTELLIGENT INTEGRATED KINETIC REC"
         )
     }
+
+    // Interactive continuous luxury movement (real-time HD dynamic shaders simulation)
+    val infiniteTransition = rememberInfiniteTransition(label = "luxury_motion")
+    
+    val xOffsetPulse by infiniteTransition.animateFloat(
+        initialValue = -0.5f,
+        targetValue = 1.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 7000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "spotlight_beam"
+    )
+
+    val floatingParallax by infiniteTransition.animateFloat(
+        initialValue = -3f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "floating_drift"
+    )
+
+    val scaleGlow by infiniteTransition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "neon_glow"
+    )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.linearGradient(gradientColors)),
+            .background(Brush.linearGradient(config.gradientColors)),
         contentAlignment = Alignment.Center
     ) {
-        // Draw subtle premium artistic grid dots
+        // Draw highly sleek high-end luxury dynamic custom 3D vector lines
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val stepX = size.width / 12
-            val stepY = size.height / 6
-            for (i in 1..11) {
-                for (j in 1..5) {
-                    drawCircle(
-                        color = tintColor.copy(alpha = 0.08f),
-                        radius = 1.5.dp.toPx(),
-                        center = Offset(i * stepX, j * stepY)
-                    )
-                }
+            val width = size.width
+            val height = size.height
+
+            // 1. Sleek luxury concentric chassis contour rings (simulating 3D depth of luxury curves)
+            val centerX = width / 2f
+            val centerY = height / 2f
+            val baseRadius = 55.dp.toPx()
+            
+            for (i in 1..3) {
+                drawCircle(
+                    color = config.tintColor.copy(alpha = 0.04f * i * scaleGlow),
+                    radius = baseRadius * (1f + i * 0.3f * scaleGlow),
+                    center = Offset(centerX, centerY + floatingParallax),
+                    style = Stroke(width = 1.dp.toPx())
+                )
             }
+
+            // 2. High-HD precision instrument technical grid lines (car speedo / chrono lines)
+            val columns = 16
+            val stepX = width / columns
+            for (i in 0..columns) {
+                val alphaVal = if (i % 4 == 0) 0.07f else 0.02f
+                drawLine(
+                    color = config.tintColor.copy(alpha = alphaVal),
+                    start = Offset(i * stepX, 0f),
+                    end = Offset(i * stepX, height),
+                    strokeWidth = if (i % 4 == 0) 1.5.dp.toPx() else 1.dp.toPx()
+                )
+            }
+
+            // 3. Dynamic Moving "3D Laser reflection beam" sliding smoothly across representing polished body
+            val beamX1 = width * xOffsetPulse
+            val beamX2 = beamX1 + (width * 0.25f)
+            val pathBeam = androidx.compose.ui.graphics.Path().apply {
+                moveTo(beamX1, 0f)
+                lineTo(beamX2, 0f)
+                lineTo(beamX2 - 80.dp.toPx(), height)
+                lineTo(beamX1 - 80.dp.toPx(), height)
+                close()
+            }
+            drawPath(
+                path = pathBeam,
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.0f),
+                        Color.White.copy(alpha = 0.35f),
+                        Color.White.copy(alpha = 0.0f)
+                    ),
+                    start = Offset(beamX1, 0f),
+                    end = Offset(beamX2, 0f)
+                )
+            )
+
+            // 4. Wind tunnel aerodynamic air flow ribbon curves (racing stream)
+            val streamPath = androidx.compose.ui.graphics.Path().apply {
+                moveTo(0f, height * 0.65f + floatingParallax)
+                cubicTo(
+                    width * 0.3f, height * 0.45f - floatingParallax,
+                    width * 0.7f, height * 0.85f + floatingParallax * 1.5f,
+                    width, height * 0.55f - floatingParallax
+                )
+            }
+            drawPath(
+                path = streamPath,
+                color = config.tintColor.copy(alpha = 0.2f),
+                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+            )
+
+            // Dynamic bottom pristine titanium trim strip
+            drawLine(
+                color = config.tintColor.copy(alpha = 0.3f),
+                start = Offset(0f, height - 4.dp.toPx()),
+                end = Offset(width, height - 4.dp.toPx()),
+                strokeWidth = 3.dp.toPx()
+              )
         }
 
-        // Circular frosted badge wrapper
+        // Overlay of performance metadata
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .align(Alignment.BottomStart)
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = config.performanceLabel,
+                color = SlateBlueText.copy(alpha = 0.4f),
+                fontSize = 8.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp
+            )
+        }
+
+        // Circular premium executive badge wrapper (Porsche style center logo in pearl white)
+        Box(
+            modifier = Modifier
+                .size(54.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.82f))
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFFFFFFFF), Color(0xFFF3F1EA)),
+                        radius = 120f
+                    )
+                )
+                .border(1.5.dp, config.tintColor.copy(alpha = 0.6f), CircleShape)
                 .padding(8.dp),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = icon,
+                imageVector = config.iconVector,
                 contentDescription = type,
-                tint = tintColor,
+                tint = config.tintColor,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -1097,7 +1265,7 @@ fun VehicleVisualBanner(type: String) {
 fun HostScreen(
     allVehicles: List<VehicleEntity>,
     profile: ProfileEntity?,
-    onAddVehicle: (String, String, String, Double, String, String) -> Unit,
+    onAddVehicle: (String, String, String, Double, String, String, Boolean) -> Unit,
     onDeleteVehicle: (VehicleEntity) -> Unit,
     config: CountryConfig
 ) {
@@ -1107,6 +1275,7 @@ fun HostScreen(
     var offerRentStr by remember { mutableStateOf("") }
     var offerHours by remember { mutableStateOf("Daily (24/7)") }
     var offerDesc by remember { mutableStateOf("") }
+    var isEvState by remember { mutableStateOf(false) }
 
     val vehicleTypes = listOf("Car", "Bike", "Scooter", "Bicycle", "Other")
     
@@ -1239,18 +1408,62 @@ fun HostScreen(
                         maxLines = 3,
                         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OceanBlue)
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // EV Switch Toggle Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { isEvState = !isEvState }
+                            .padding(vertical = 8.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                Icons.Filled.Bolt,
+                                contentDescription = "Electric Vehicle Icon",
+                                tint = if (isEvState) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Column {
+                                Text(
+                                    "Is Electric Vehicle (EV)?",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "Toggle on if this vehicle runs on electric battery power.",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = isEvState,
+                            onCheckedChange = { isEvState = it },
+                            modifier = Modifier.testTag("host_ev_switch")
+                        )
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val canSubmit = offerModel.isNotBlank() && offerReg.isNotBlank() && offerRentStr.isNotBlank() && profile != null && profile.name.isNotBlank() && profile.isVerified
                     Button(
                         onClick = {
                             val rentDouble = offerRentStr.toDoubleOrNull() ?: 0.0
-                            onAddVehicle(offerModel, selectedType, offerReg, rentDouble, offerHours, offerDesc)
+                            onAddVehicle(offerModel, selectedType, offerReg, rentDouble, offerHours, offerDesc, isEvState)
                             // Clean details after submit
                             offerModel = ""
                             offerReg = ""
                             offerRentStr = ""
                             offerDesc = ""
+                            isEvState = false
                         },
                         enabled = canSubmit,
                         modifier = Modifier.fillMaxWidth().testTag("host_submit_button"),
@@ -1816,22 +2029,26 @@ fun ProfileScreen(
         }
 
         item {
-            // Visual Residency Poster (Passport Card Style)
+            // Visual Residency Poster (Passport Card Style - Executive Yacht / Sports Club Member Card)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(
-                        Brush.radialGradient(
+                        Brush.linearGradient(
                             colors = if (isVerifiedNow) {
-                                listOf(Color(0xFF2E7D32), Color(0xFF1B5E20)) // Deep Green Forest theme for verified
+                                listOf(Color(0xFF0EA5E9), Color(0xFF0284C7)) // Miami Sky Blue Gradient
                             } else {
-                                listOf(Color(0xFF0369A1), Color(0xFF0F172A)) // Classic styling for pending/unverified
-                            },
-                            radius = 500f
+                                listOf(Color(0xFFFAF7F2), Color(0xFFECE5D8)) // Premium Alabaster Cream
+                            }
                         )
                     )
-                    .padding(20.dp)
+                    .border(
+                        width = 1.dp,
+                        color = if (isVerifiedNow) Color.White.copy(alpha = 0.35f) else SlateBlueText.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .padding(22.dp)
             ) {
                 Column {
                     Row(
@@ -1841,55 +2058,95 @@ fun ProfileScreen(
                     ) {
                         Column {
                             Text(
-                                "MEMBER PASSPORT",
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontSize = 10.sp,
+                                "NEARBYDRIVE SOCIETY ID",
+                                color = if (isVerifiedNow) Color.White.copy(alpha = 0.75f) else SlateBlueText.copy(alpha = 0.62f),
+                                fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 2.sp
+                                letterSpacing = 2.5.sp
                             )
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                name.ifBlank { "Guest Resident" },
-                                color = Color.White,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Black
-                              )
+                                name.ifBlank { "GUEST RESIDENT" }.uppercase(),
+                                color = if (isVerifiedNow) Color.White else SlateDark,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
                         }
 
                         Column(horizontalAlignment = Alignment.End) {
                             Icon(
                                 if (isVerifiedNow) Icons.Filled.CheckCircle else Icons.Filled.Badge,
                                 contentDescription = "Verification Badge",
-                                tint = if (isVerifiedNow) Color(0xFFADC2A9) else OceanLight,
-                                modifier = Modifier.size(36.dp)
+                                tint = if (isVerifiedNow) Color.White else SlateBlueText.copy(alpha = 0.5f),
+                                modifier = Modifier.size(32.dp)
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                if (isVerifiedNow) "VERIFIED MEMBER" else "UNVERIFIED STATUS",
-                                color = if (isVerifiedNow) Color(0xFFADC2A9) else AccentCoral,
-                                fontSize = 9.sp,
+                                if (isVerifiedNow) "ACTIVE CREDENTIAL" else "UNVERIFIED STATUS",
+                                color = if (isVerifiedNow) Color.White.copy(alpha = 0.9f) else AccentCoral,
+                                fontSize = 8.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(28.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(24.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("HOUSING ${config.blockLabel.uppercase()}", color = Color.White.copy(alpha = 0.5f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                            Text(block.ifBlank { "Unassigned" }, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                "HOUSING ${config.blockLabel.uppercase()}",
+                                color = if (isVerifiedNow) Color.White.copy(alpha = 0.6f) else SlateBlueText.copy(alpha = 0.6f),
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                block.ifBlank { "Unassigned" }.uppercase(),
+                                color = if (isVerifiedNow) Color.White else SlateDark,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                         Column {
-                            Text("${config.flatLabel.uppercase()} NUMBER", color = Color.White.copy(alpha = 0.5f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                            Text(flat.ifBlank { "Pending Setup" }, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                "${config.flatLabel.uppercase()} UNITS",
+                                color = if (isVerifiedNow) Color.White.copy(alpha = 0.6f) else SlateBlueText.copy(alpha = 0.6f),
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                flat.ifBlank { "Pending" }.uppercase(),
+                                color = if (isVerifiedNow) Color.White else SlateDark,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                        Column {
-                            Text("REGISTERED CONTACT", color = Color.White.copy(alpha = 0.5f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                            Text(phone.ifBlank { "None added" }, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                "VIP MEMBER LEVEL",
+                                color = if (isVerifiedNow) Color.White.copy(alpha = 0.6f) else SlateBlueText.copy(alpha = 0.6f),
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                if (isVerifiedNow) "GOLD EXECUTIVE" else "PROVISIONAL",
+                                color = if (isVerifiedNow) Color.White else SlateBlueText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
                         }
                     }
                 }
