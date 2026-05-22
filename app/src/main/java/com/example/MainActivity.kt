@@ -11,6 +11,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -452,31 +454,37 @@ fun HeaderView(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Filled.DirectionsCar,
-                    contentDescription = "NearbyDrive Logo",
-                    tint = OceanBlue,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "NEARBYDRIVE",
-                    fontSize = 21.sp,
-                    fontWeight = FontWeight.Light,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontFamily = FontFamily.SansSerif,
-                    letterSpacing = 4.sp
-                )
-            }
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Filled.DirectionsCar,
+                contentDescription = "NearbyDrive Logo",
+                tint = OceanBlue,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "L U X U R Y   E S T A T E   S H A R I N G",
-                fontSize = 8.5.sp,
+                text = "NEARBYDRIVE",
+                fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
-                color = SlateBlueText,
-                letterSpacing = 1.2.sp,
-                modifier = Modifier.padding(top = 2.dp)
+                color = MaterialTheme.colorScheme.onBackground,
+                fontFamily = FontFamily.SansSerif,
+                letterSpacing = 0.5.sp,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            val societyName = if (selectedCountry == "IN") "GREENWOOD CO-OP" else "PINEWOOD MEADOWS"
+            Text(
+                text = "|  $societyName",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = OceanBlue,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
 
@@ -629,6 +637,16 @@ fun BrowseRidesScreen(
         }
     }
 
+    var showSocialShowcase by remember { mutableStateOf(false) }
+
+    if (showSocialShowcase) {
+        SocialShowcaseDialog(
+            onDismiss = { showSocialShowcase = false },
+            selectedCountry = if (config.countryCode == "IN") "IN" else "US",
+            config = config
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         // Search & Explore bar
         OutlinedTextField(
@@ -654,6 +672,61 @@ fun BrowseRidesScreen(
                 unfocusedBorderColor = SlateBlueText.copy(alpha = 0.2f)
             )
         )
+
+        // Premium Social Showcase Media Pill/Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .clickable { showSocialShowcase = true },
+            colors = CardDefaults.cardColors(
+                containerColor = OceanLight,
+                contentColor = OceanBlue
+            ),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, OceanBlue.copy(alpha = 0.25f))
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(OceanBlue.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = "Social Showcase Media Kit",
+                        tint = OceanBlue,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Pitch to Neighbors & Social Media 🚀",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Tap for interactive feature slides, trust guidelines, and direct pitch card templates!",
+                        fontSize = 11.sp,
+                        color = SlateBlueText.copy(alpha = 0.8f)
+                    )
+                }
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = "Open Pitch Kit",
+                    tint = OceanBlue,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
 
         // Type Filter Chips Scroll with EV Toggle
         Row(
@@ -2409,7 +2482,7 @@ fun SocietyVerificationDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "A virtual pairing ping is sent to the Guard Intercom at ${config.blockLabel} $block, ${config.flatLabel} $flat. Type any 4-digit code (e.g. 1234) as the security PIN to verify society membership.",
+                    text = "To keep our gated community secure, we verify your residency status. For this MVP trial, we simulated sending a verification passcode link to the guard intercom console at ${config.blockLabel} $block, ${config.flatLabel} $flat. Just type any 4-digit PIN (e.g. 1234) to instantly authenticate as an active resident!",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     textAlign = TextAlign.Center
@@ -2687,6 +2760,445 @@ fun BookRideDialog(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("Request Ride Confirmation", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SocialShowcaseDialog(
+    onDismiss: () -> Unit,
+    selectedCountry: String,
+    config: CountryConfig
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val clipboardManager = remember {
+        context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+    }
+    
+    var activeSubTab by remember { mutableStateOf("Slides") } // "Slides", "PitchCard", "CopyText"
+    var currentSlide by remember { mutableStateOf(1) }
+    val totalSlides = 3
+    
+    val societyName = if (selectedCountry == "IN") "GREENWOOD CO-OP" else "PINEWOOD MEADOWS"
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 12.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                // Header of Dialog
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.Share,
+                            contentDescription = "Share logo",
+                            tint = OceanBlue,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Interactive Pitch-Kit",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Close dialog",
+                            tint = SlateBlueText.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Beautiful custom Tab Pill Selector
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SoftGray)
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf(
+                        "Slides" to "Interactive Slides",
+                        "PitchCard" to "Pitch Graphic",
+                        "CopyText" to "Copy Templates"
+                    ).forEach { (tabKey, tabLabel) ->
+                        val isSel = activeSubTab == tabKey
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSel) OceanBlue else Color.Transparent)
+                                .clickable { activeSubTab = tabKey }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = tabLabel,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSel) Color.White else SlateBlueText
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Dynamic content based on sub-tab selection
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .heightIn(min = 250.dp, max = 340.dp)
+                ) {
+                    when (activeSubTab) {
+                        "Slides" -> {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // Slide contents
+                                when (currentSlide) {
+                                    1 -> {
+                                        SlideItem(
+                                            title = "1. Gated Neighbor Share Network",
+                                            desc = "NearbyDrive $societyName is built exclusively for verified residents to share family cars, sports bikes, eco-friendly scooters, and hybrid test cycles.\n\nAbsolutely no guest spam, central platform commission cuts, or commercial driver leakage.",
+                                            icon = Icons.Filled.DirectionsCar
+                                        )
+                                    }
+                                    2 -> {
+                                        SlideItem(
+                                            title = "2. Guard Intercom Secure Pairing",
+                                            desc = "Your physical security is fully guarded! Users must verify residency via standard Guard Intercom pairing. Entering any simple code authorization is simulated for instant residency credential locks. Guaranteed peer-to-peer trust.",
+                                            icon = Icons.Filled.VerifiedUser
+                                        )
+                                    }
+                                    3 -> {
+                                        SlideItem(
+                                            title = "3. Zero-Risk Local Device Sandbox",
+                                            desc = "No external server vulnerabilities here! All of your coordinates, coordinates list, profiles, and booking streams are isolated using highly secure, sandbox encrypted SQLite structures on your phone. Highly resilient of hacking.",
+                                            icon = Icons.Filled.Shield
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // Slide Navigation controls
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Slide $currentSlide of $totalSlides",
+                                        fontSize = 12.sp,
+                                        color = SlateBlueText.copy(alpha = 0.6f)
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        if (currentSlide > 1) {
+                                            OutlinedButton(
+                                                onClick = { currentSlide-- },
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Text("Prev", fontSize = 12.sp)
+                                            }
+                                        }
+                                        if (currentSlide < totalSlides) {
+                                            Button(
+                                                onClick = { currentSlide++ },
+                                                colors = ButtonDefaults.buttonColors(containerColor = OceanBlue),
+                                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Text("Next ✦", fontSize = 12.sp)
+                                            }
+                                        } else {
+                                            Button(
+                                                onClick = { activeSubTab = "PitchCard" },
+                                                colors = ButtonDefaults.buttonColors(containerColor = MintGreen),
+                                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Text("Show Pitch Card 🚀", fontSize = 12.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        "PitchCard" -> {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // Beautiful gradient Pitch Card Group
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(
+                                            Brush.linearGradient(
+                                                listOf(OceanBlue, Color(0xFF0D9488))
+                                            )
+                                        )
+                                        .padding(16.dp)
+                                ) {
+                                    Column {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Filled.DirectionsCar,
+                                                    contentDescription = "Logo",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "NEARBYDRIVE",
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = Color.White,
+                                                    letterSpacing = 1.sp
+                                                )
+                                            }
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(Color.White.copy(alpha = 0.2f))
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = "SOCIETY EDITION",
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                        Text(
+                                            text = "Let's share vehicles in $societyName! 🚗",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Rent local electric cars, emission-free scooters, riding bikes and speed cycles of neighbors directly, verified secure via Guard Intercom pairing PIN locks. No commissions. Highly ecological.",
+                                            fontSize = 10.5.sp,
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            lineHeight = 14.sp
+                                        )
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.Bottom
+                                        ) {
+                                            Column {
+                                                Text("✦ GATED NEIGHBORS ONLY", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
+                                                Text("✦ ZERO TRANSACTION FEE", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
+                                                Text("✦ SECURE LOCAL SANDBOX", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
+                                            }
+                                            Icon(
+                                                Icons.Filled.QrCodeScanner,
+                                                contentDescription = "Mock QR",
+                                                tint = Color.White.copy(alpha = 0.8f),
+                                                modifier = Modifier.size(36.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = "📸 Take a screenshot of the card above to post directly on Twitter/X, LinkedIn, or your Society WhatsApp Group!",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = SlateBlueText,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 6.dp)
+                                )
+                            }
+                        }
+                        "CopyText" -> {
+                            val scrollState = rememberScrollState()
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(scrollState),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                PitchTextTemplate(
+                                    title = "📱 WhatsApp / Facebook Casual Neighbor Pitch",
+                                    text = "Hey neighbors! I am introducing an eco-friendly EV and vehicle-sharing option for our society, $societyName! Rent safe local cars and electric scooters straight from residents, fully gated by our Guard Intercom matching registry. Zero fees, direct peer coordination! Check out the NearbyDrive MVP! 🚗💨",
+                                    onCopy = {
+                                        clipboardManager.setPrimaryClip(android.content.ClipData.newPlainText("NearbyDrive Neighbor Pitch", it))
+                                        android.widget.Toast.makeText(context, "Copied WhatsApp pitch to clipboard!", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+
+                                PitchTextTemplate(
+                                    title = "💼 Society Committee / Resident Council Formal Pitch",
+                                    text = "We are proposing 'NearbyDrive' for $societyName—a secure, decentralized mobile ecosystem matching under-utilized secondary resident vehicles (EVs, cycles, cars) with active neighbors. Verified strictly using guard intercom intercom authorization logs, slashing community parking congestion and reducing overall transport carbon footprint.",
+                                    onCopy = {
+                                        clipboardManager.setPrimaryClip(android.content.ClipData.newPlainText("NearbyDrive Committee Pitch", it))
+                                        android.widget.Toast.makeText(context, "Copied Committee pitch to clipboard!", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                HorizontalDivider(color = SlateBlueText.copy(alpha = 0.12f))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = OceanBlue),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Close Pitch-Kit", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SlideItem(
+    title: String,
+    desc: String,
+    icon: ImageVector
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(SoftGray)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(54.dp)
+                .clip(CircleShape)
+                .background(OceanBlue.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = OceanBlue,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = title,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = desc,
+            fontSize = 12.sp,
+            color = SlateBlueText.copy(alpha = 0.85f),
+            textAlign = TextAlign.Center,
+            lineHeight = 16.sp
+        )
+    }
+}
+
+@Composable
+fun PitchTextTemplate(
+    title: String,
+    text: String,
+    onCopy: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = SoftGray),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, SlateBlueText.copy(alpha = 0.08f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = title,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = OceanBlue
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = text,
+                fontSize = 11.5.sp,
+                color = SlateBlueText.copy(alpha = 0.85f),
+                lineHeight = 15.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(
+                    onClick = { onCopy(text) },
+                    modifier = Modifier.height(32.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = OceanBlue.copy(alpha = 0.12f), contentColor = OceanBlue),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = "Copy text",
+                            tint = OceanBlue,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text("Copy Pitch", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
