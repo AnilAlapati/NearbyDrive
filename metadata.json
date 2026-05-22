@@ -1,0 +1,6 @@
+{
+  "name": "NearbyDrive",
+  "description": "Rent and lend vehicles locally with residents in your own housing society. Set rates, specify flat numbers, managing availability and requests.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
