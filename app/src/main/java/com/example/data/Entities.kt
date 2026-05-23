@@ -39,6 +39,8 @@ data class BookingEntity(
     val hours: Int,
     val totalPrice: Double,
     val notes: String = "",
+    val bookingDate: String = "Today",
+    val startHour: Int = 9,
     val status: String = "Requested", // "Requested", "Approved", "Completed", "Cancelled"
     val timestamp: Long = System.currentTimeMillis()
 )

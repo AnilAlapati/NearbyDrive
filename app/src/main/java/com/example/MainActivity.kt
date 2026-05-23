@@ -125,6 +125,8 @@ fun MainScreen() {
     
     // States for custom modals
     var bookingVehicleTarget by remember { mutableStateOf<VehicleEntity?>(null) }
+    var calendarPrefilledDate by remember { mutableStateOf<String?>(null) }
+    var calendarPrefilledStartHour by remember { mutableStateOf<Int?>(null) }
     var showProfileRequiredWarning by remember { mutableStateOf(false) }
     var showVerificationRequiredWarning by remember { mutableStateOf(false) }
 
@@ -183,6 +185,20 @@ fun MainScreen() {
                     selected = activeTab == "Bookings",
                     onClick = { activeTab = "Bookings" },
                     modifier = Modifier.testTag("nav_tab_bookings"),
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = OceanBlue,
+                        selectedTextColor = OceanBlue,
+                        indicatorColor = OceanLight,
+                        unselectedIconColor = SlateBlueText.copy(alpha = 0.6f),
+                        unselectedTextColor = SlateBlueText.copy(alpha = 0.6f)
+                    )
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Filled.DateRange, contentDescription = "Schedules & Availability") },
+                    label = { Text("Calendar") },
+                    selected = activeTab == "Calendar",
+                    onClick = { activeTab = "Calendar" },
+                    modifier = Modifier.testTag("nav_tab_calendar"),
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = OceanBlue,
                         selectedTextColor = OceanBlue,
@@ -326,6 +342,7 @@ fun MainScreen() {
                     when (targetTab) {
                         "Browse" -> BrowseRidesScreen(
                             vehicles = vehiclesState,
+                            bookings = bookingsState,
                             profile = profileState,
                             selectedTypeFilter = selectedTypeFilter,
                             searchQuery = searchQuery,
@@ -333,13 +350,14 @@ fun MainScreen() {
                             onTypeFilterSelected = { appViewModel.setTypeFilter(it) },
                             onSearchQueryChanged = { appViewModel.setSearchQuery(it) },
                             onEvFilterChanged = { appViewModel.setEvFilter(it) },
-                            onBookClicked = { vehicle ->
+                            onBookClicked = { vehicle, prefilledDate ->
                                 if (isProfileEmpty) {
                                     showProfileRequiredWarning = true
                                 } else if (!isVerified) {
                                     showVerificationRequiredWarning = true
                                 } else {
                                     bookingVehicleTarget = vehicle
+                                    calendarPrefilledDate = prefilledDate
                                 }
                             },
                             config = countryConfig
@@ -361,6 +379,23 @@ fun MainScreen() {
                             },
                             config = countryConfig
                         )
+                        "Calendar" -> AvailabilityCalendarScreen(
+                            bookings = bookingsState,
+                            vehicles = vehiclesState,
+                            profile = profileState,
+                            onBookSlotClicked = { vehicle, date, startH ->
+                                if (profileState == null || profileState?.name.isNullOrBlank()) {
+                                    showProfileRequiredWarning = true
+                                } else if (profileState?.isVerified == false) {
+                                    showVerificationRequiredWarning = true
+                                } else {
+                                    bookingVehicleTarget = vehicle
+                                    calendarPrefilledDate = date
+                                    calendarPrefilledStartHour = startH
+                                }
+                            },
+                            config = countryConfig
+                        )
                         "Profile" -> ProfileScreen(
                             profile = profileState,
                             onSaveProfile = { name, block, flat, phone, isVerified ->
@@ -378,10 +413,18 @@ fun MainScreen() {
     bookingVehicleTarget?.let { vehicle ->
         BookRideDialog(
             vehicle = vehicle,
-            onDismiss = { bookingVehicleTarget = null },
-            onConfirmBooking = { hours, notes ->
-                appViewModel.requestBooking(vehicle, hours, notes)
+            prefilledDate = calendarPrefilledDate,
+            prefilledStartHour = calendarPrefilledStartHour,
+            onDismiss = { 
                 bookingVehicleTarget = null
+                calendarPrefilledDate = null
+                calendarPrefilledStartHour = null
+            },
+            onConfirmBooking = { hours, notes, date, startHour ->
+                appViewModel.requestBooking(vehicle, hours, notes, date, startHour)
+                bookingVehicleTarget = null
+                calendarPrefilledDate = null
+                calendarPrefilledStartHour = null
             },
             config = countryConfig
         )
@@ -610,6 +653,7 @@ fun NeighborChip(
 @Composable
 fun BrowseRidesScreen(
     vehicles: List<VehicleEntity>,
+    bookings: List<BookingEntity>,
     profile: ProfileEntity?,
     selectedTypeFilter: String,
     searchQuery: String,
@@ -617,14 +661,17 @@ fun BrowseRidesScreen(
     onTypeFilterSelected: (String) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onEvFilterChanged: (Boolean) -> Unit,
-    onBookClicked: (VehicleEntity) -> Unit,
+    onBookClicked: (VehicleEntity, String?) -> Unit,
     config: CountryConfig
 ) {
     val focusManager = LocalFocusManager.current
     val filterTypes = listOf("All", "Car", "Bike", "Scooter", "Bicycle", "Other")
 
+    var selectedDayFilter by remember { mutableStateOf("Any Day") }
+    var showOnlyFullyAvailable by remember { mutableStateOf(false) }
+
     // Filter vehicles locally
-    val filteredVehicles = remember(vehicles, selectedTypeFilter, searchQuery, isEvFilterOnly) {
+    val filteredVehicles = remember(vehicles, bookings, selectedTypeFilter, searchQuery, isEvFilterOnly, selectedDayFilter, showOnlyFullyAvailable) {
         vehicles.filter { vehicle ->
             val matchType = selectedTypeFilter == "All" || vehicle.type.equals(selectedTypeFilter, ignoreCase = true)
             val matchSearch = searchQuery.isBlank() ||
@@ -633,7 +680,20 @@ fun BrowseRidesScreen(
                     vehicle.ownerFlat.contains(searchQuery, ignoreCase = true) ||
                     vehicle.desc.contains(searchQuery, ignoreCase = true)
             val matchEv = !isEvFilterOnly || vehicle.isEv
-            matchType && matchSearch && matchEv
+            
+            val matchAvailable = if (selectedDayFilter == "Any Day" || !showOnlyFullyAvailable) {
+                true
+            } else {
+                // Return true only if there is NO ACTIVE booking for this vehicle on this day
+                val hasBooking = bookings.any {
+                    it.vehicleId == vehicle.id && 
+                    it.bookingDate.equals(selectedDayFilter, ignoreCase = true) &&
+                    it.status != "Cancelled"
+                }
+                !hasBooking
+            }
+            
+            matchType && matchSearch && matchEv && matchAvailable
         }
     }
 
@@ -732,8 +792,8 @@ fun BrowseRidesScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp)
-                .padding(start = 16.dp, end = 16.dp),
+                .padding(top = 10.dp, bottom = 4.dp)
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -793,6 +853,89 @@ fun BrowseRidesScreen(
             }
         }
 
+        // Horizontal Day Selector Carousel & Switch
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Day:",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = SlateBlueText.copy(alpha = 0.7f),
+                modifier = Modifier.padding(end = 4.dp)
+            )
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val daysList = listOf("Any Day", "Today", "Tomorrow", "Day After")
+                items(daysList) { dayOption ->
+                    val isSel = selectedDayFilter == dayOption
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSel) OceanLight else SoftGray)
+                            .border(
+                                width = 1.dp,
+                                color = if (isSel) OceanBlue else Color.Transparent,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable { selectedDayFilter = dayOption }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = dayOption,
+                            color = if (isSel) OceanBlue else SlateBlueText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // Optional "Available only" filter toggle
+            if (selectedDayFilter != "Any Day") {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (showOnlyFullyAvailable) MintGreen.copy(alpha = 0.15f) else SoftGray)
+                        .border(
+                            width = 1.dp,
+                            color = if (showOnlyFullyAvailable) MintGreen else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .clickable { showOnlyFullyAvailable = !showOnlyFullyAvailable }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = "Show fully available",
+                            tint = if (showOnlyFullyAvailable) MintGreen else SlateBlueText.copy(alpha = 0.5f),
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = "Free Only",
+                            fontSize = 10.sp,
+                            color = if (showOnlyFullyAvailable) MintGreen else SlateBlueText,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+            }
+        }
+
         // Listed Rides Feed
         if (filteredVehicles.isEmpty()) {
             Box(
@@ -836,8 +979,10 @@ fun BrowseRidesScreen(
                 items(filteredVehicles, key = { it.id }) { vehicle ->
                     VehicleCard(
                         vehicle = vehicle,
+                        bookings = bookings,
+                        selectedDayFilter = selectedDayFilter,
                         profile = profile,
-                        onBookClicked = { onBookClicked(vehicle) },
+                        onBookClicked = { prefilledDay -> onBookClicked(vehicle, prefilledDay) },
                         config = config
                     )
                 }
@@ -849,11 +994,23 @@ fun BrowseRidesScreen(
 @Composable
 fun VehicleCard(
     vehicle: VehicleEntity,
+    bookings: List<BookingEntity>,
+    selectedDayFilter: String,
     profile: ProfileEntity?,
-    onBookClicked: () -> Unit,
+    onBookClicked: (String?) -> Unit,
     config: CountryConfig
 ) {
     val isMine = profile != null && vehicle.ownerName == profile.name && vehicle.ownerBlock == profile.block
+
+    fun formatHour(hour: Int): String {
+        val h = when {
+            hour == 0 || hour == 24 -> 12
+            hour > 12 -> hour - 12
+            else -> hour
+        }
+        val ampm = if (hour >= 12 && hour < 24) "PM" else "AM"
+        return "$h $ampm"
+    }
 
     Card(
         modifier = Modifier
@@ -1017,6 +1174,93 @@ fun VehicleCard(
                     lineHeight = 17.sp
                 )
 
+                // Date-Aware Live Availability Badge Option
+                if (selectedDayFilter != "Any Day") {
+                    val activeBookings = remember(bookings, vehicle.id, selectedDayFilter) {
+                        bookings.filter {
+                            it.vehicleId == vehicle.id &&
+                            it.bookingDate.equals(selectedDayFilter, ignoreCase = true) &&
+                            it.status != "Cancelled"
+                        }
+                    }
+
+                    val totalHoursBooked = activeBookings.sumOf { it.hours }
+                    val isFullyBooked = totalHoursBooked >= 10
+
+                    val indicatorColor = when {
+                        activeBookings.isEmpty() -> MintGreen
+                        isFullyBooked -> AccentCoral
+                        else -> WarmAmber
+                    }
+
+                    val bgTint = indicatorColor.copy(alpha = 0.08f)
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(bgTint)
+                            .border(1.dp, indicatorColor.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(indicatorColor)
+                                )
+                                Text(
+                                    text = when {
+                                        activeBookings.isEmpty() -> "🟢 Fully Available $selectedDayFilter"
+                                        isFullyBooked -> "🔴 Fully Booked $selectedDayFilter"
+                                        else -> "🟡 Partially Booked ($totalHoursBooked hrs reserved)"
+                                    },
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SlateDark
+                                )
+                            }
+
+                            if (activeBookings.isNotEmpty()) {
+                                // Display formatted busy slots compactly
+                                val busySlotsText = activeBookings.map { b ->
+                                    val startStr = formatHour(b.startHour)
+                                    val endStr = formatHour(b.startHour + b.hours)
+                                    "$startStr-$endStr"
+                                }.joinToString(", ")
+
+                                Text(
+                                    text = "Busy: $busySlotsText",
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = SlateBlueText,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = "Tap to rent",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = MintGreen
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Status and Info Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1096,7 +1340,7 @@ fun VehicleCard(
                         }
                     } else {
                         Button(
-                            onClick = onBookClicked,
+                            onClick = { onBookClicked(if (selectedDayFilter == "Any Day") null else selectedDayFilter) },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = OceanBlue,
                                 contentColor = Color.White
@@ -2578,12 +2822,16 @@ fun SocietyVerificationDialog(
 @Composable
 fun BookRideDialog(
     vehicle: VehicleEntity,
+    prefilledDate: String? = null,
+    prefilledStartHour: Int? = null,
     onDismiss: () -> Unit,
-    onConfirmBooking: (Int, String) -> Unit,
+    onConfirmBooking: (Int, String, String, Int) -> Unit,
     config: CountryConfig
 ) {
     var rentHours by remember { mutableStateOf(3) }
     var bookingNotes by remember { mutableStateOf("") }
+    var bookingDate by remember { mutableStateOf(prefilledDate ?: "Today") }
+    var startHour by remember { mutableStateOf(prefilledStartHour ?: 9) }
 
     val totalPrice = vehicle.rentPerHour * rentHours
 
@@ -2657,6 +2905,81 @@ fun BookRideDialog(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
+
+                // Date Selector
+                Text(
+                    text = "When will you start?",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SlateBlueText.copy(alpha = 0.6f)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("Today", "Tomorrow", "Day After").forEach { day ->
+                        val isSel = bookingDate == day
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSel) OceanBlue else OceanLight)
+                                .clickable { bookingDate = day }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = day,
+                                color = if (isSel) Color.White else OceanBlue,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Starting Hour Selector
+                Text(
+                    text = "Starting Hour:",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SlateBlueText.copy(alpha = 0.6f)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(16) { index ->
+                        val hourVal = index + 7 // 7 AM to 10 PM
+                        val hourStr = when {
+                            hourVal == 12 -> "12 PM"
+                            hourVal > 12 -> "${hourVal - 12} PM"
+                            else -> "$hourVal AM"
+                        }
+                        val isSel = startHour == hourVal
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSel) OceanBlue else SoftGray)
+                                .clickable { startHour = hourVal }
+                                .padding(horizontal = 14.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = hourStr,
+                                color = if (isSel) Color.White else SlateBlueText,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Hours Choice Box
                 Text(
@@ -2754,7 +3077,7 @@ fun BookRideDialog(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Button(
-                    onClick = { onConfirmBooking(rentHours, bookingNotes) },
+                    onClick = { onConfirmBooking(rentHours, bookingNotes, bookingDate, startHour) },
                     modifier = Modifier.fillMaxWidth().testTag("confirm_booking_submit"),
                     colors = ButtonDefaults.buttonColors(containerColor = OceanBlue),
                     shape = RoundedCornerShape(12.dp)
@@ -3204,3 +3527,398 @@ fun PitchTextTemplate(
         }
     }
 }
+
+@Composable
+fun AvailabilityCalendarScreen(
+    bookings: List<BookingEntity>,
+    vehicles: List<VehicleEntity>,
+    profile: ProfileEntity?,
+    onBookSlotClicked: (VehicleEntity, String, Int) -> Unit,
+    config: CountryConfig
+) {
+    var selectedVehicleId by remember { mutableStateOf<Long?>(null) }
+    var selectedDate by remember { mutableStateOf("Today") }
+
+    // Synchronize selectedVehicleId with first vehicle in the list if null
+    LaunchedEffect(vehicles) {
+        if (selectedVehicleId == null && vehicles.isNotEmpty()) {
+            selectedVehicleId = vehicles.first().id
+        }
+    }
+
+    val selectedVehicle = vehicles.find { it.id == selectedVehicleId }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        // App header intro
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(OceanLight),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.DateRange,
+                    contentDescription = "Calendar Hub",
+                    tint = OceanBlue,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = "Hourly Booking Hub 🗓️",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = SlateDark
+                )
+                Text(
+                    text = "Track availability & secure key sharing hour-by-hour",
+                    fontSize = 11.sp,
+                    color = SlateBlueText.copy(alpha = 0.8f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Vehicles Horizontally Scrollable Selectable Row
+        Text(
+            text = "SELECT VEHICLE TO INSPECT SCHEDULE:",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = SlateBlueText.copy(alpha = 0.7f),
+            letterSpacing = 1.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        
+        if (vehicles.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(SoftGray),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No vehicles shared in your community yet.\nGo to Host tab to offer a drive!",
+                    fontSize = 12.sp,
+                    color = SlateBlueText,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(vehicles.size) { index ->
+                    val vehicle = vehicles[index]
+                    val isSelected = vehicle.id == selectedVehicleId
+                    
+                    Card(
+                        modifier = Modifier
+                            .width(150.dp)
+                            .clickable { selectedVehicleId = vehicle.id },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) OceanBlue else Color.White
+                        ),
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = if (isSelected) OceanBlue else SlateBlueText.copy(alpha = 0.15f)
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            // Badge with Type
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(
+                                        if (isSelected) Color.White.copy(alpha = 0.2f) 
+                                        else OceanLight
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = vehicle.type.uppercase(),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = if (isSelected) Color.White else OceanBlue
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = vehicle.model,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) Color.White else SlateDark,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "${config.currency}${vehicle.rentPerHour.toInt()}/hr",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isSelected) Color.White.copy(alpha = 0.9f) else SlateBlueText
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Date selection tabs
+        Text(
+            text = "CHOOSE DATE OFFSET:",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = SlateBlueText.copy(alpha = 0.7f),
+            letterSpacing = 1.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("Today", "Tomorrow", "Day After").forEach { day ->
+                val isSel = selectedDate == day
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isSel) OceanLight else Color.White)
+                        .clickable { selectedDate = day }
+                        .border(
+                            width = 1.dp,
+                            color = if (isSel) OceanBlue else SlateBlueText.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = day,
+                        color = if (isSel) OceanBlue else SlateBlueText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Hourly booking timeline title
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "$selectedDate Hourly Timeline",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = SlateDark
+            )
+            // Color guides indicator
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LegendIndicator(color = MintGreen.copy(alpha = 0.15f), label = "Available")
+                LegendIndicator(color = OceanBlue.copy(alpha = 0.15f), label = "Booked")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Now, design the hourly slots grid!
+        if (selectedVehicle == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Please select a vehicle to display its live availability grid.",
+                    fontSize = 12.sp,
+                    color = SlateBlueText,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            // Find active bookings on chosen day for chosen vehicle
+            val relevantBookings = bookings.filter {
+                it.vehicleId == selectedVehicle.id && 
+                it.bookingDate.equals(selectedDate, ignoreCase = true) &&
+                it.status != "Cancelled"
+            }
+
+            // Outer scrollable box containing hours
+            Box(modifier = Modifier.weight(1f)) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // We inspect hours from 7:00 AM (7) to 10:00 PM (22)
+                    items(16) { index ->
+                        val hourVal = index + 7
+                        val hourStr = when {
+                            hourVal == 12 -> "12:00 PM"
+                            hourVal > 12 -> "${hourVal - 12}:00 PM"
+                            else -> "$hourVal:00 AM"
+                        }
+                        
+                        // Check if this hour falls inside any active booking interval
+                        val activeBooking = relevantBookings.find { booking ->
+                            val start = booking.startHour
+                            val end = start + booking.hours
+                            hourVal >= start && hourVal < end
+                        }
+
+                        if (activeBooking != null) {
+                            val isApproved = activeBooking.status == "Approved" || activeBooking.status == "Completed"
+                            val statusColor = if (isApproved) OceanBlue else WarmAmber
+                            val statusLabel = if (isApproved) "Booked" else "Pending Request"
+                            val accentContainerColor = if (isApproved) OceanLight else WarmAmber.copy(alpha = 0.12f)
+                            
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = accentContainerColor),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, statusColor.copy(alpha = 0.3f))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                                        .fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = hourStr,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = statusColor,
+                                            modifier = Modifier.width(75.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = if (isApproved) "Rented by ${activeBooking.renterName}" else "Requested by ${activeBooking.renterName}",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = SlateDark
+                                            )
+                                            Text(
+                                                text = "${config.blockLabel} ${activeBooking.renterBlock} • ${config.flatLabel} ${activeBooking.renterFlat}",
+                                                fontSize = 10.sp,
+                                                color = SlateBlueText
+                                            )
+                                        }
+                                    }
+                                    
+                                    // Status pill badge
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(CircleShape)
+                                            .background(statusColor)
+                                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                                    ) {
+                                        Text(
+                                            text = statusLabel.uppercase(),
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            // Available Hour Grid Cell
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onBookSlotClicked(selectedVehicle, selectedDate, hourVal)
+                                    },
+                                colors = CardDefaults.cardColors(containerColor = MintGreen.copy(alpha = 0.08f)),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, MintGreen.copy(alpha = 0.15f))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                                        .fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = hourStr,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = MintGreen,
+                                            modifier = Modifier.width(75.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = "Available to Reserve",
+                                            fontSize = 12.sp,
+                                            color = SlateBlueText,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                    
+                                    // Direct action arrow button
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "BOOK NOW",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MintGreen
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                            imageVector = Icons.Filled.AddCircle,
+                                            contentDescription = "Reserve Slot",
+                                            tint = MintGreen,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LegendIndicator(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(text = label, fontSize = 10.sp, color = SlateBlueText, fontWeight = FontWeight.Bold)
+    }
+}
+

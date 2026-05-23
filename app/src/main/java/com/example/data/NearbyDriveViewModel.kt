@@ -170,7 +170,13 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun requestBooking(vehicle: VehicleEntity, hours: Int, notes: String) {
+    fun requestBooking(
+        vehicle: VehicleEntity,
+        hours: Int,
+        notes: String,
+        bookingDate: String = "Today",
+        startHour: Int = 9
+    ) {
         viewModelScope.launch {
             val p = profile.value ?: ProfileEntity(name = "Resident", block = "A", flat = "101", phone = "")
             
@@ -190,6 +196,8 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
                 hours = hours,
                 totalPrice = vehicle.rentPerHour * hours,
                 notes = notes,
+                bookingDate = bookingDate,
+                startHour = startHour,
                 status = "Requested"
             )
             repository.createBooking(booking)
