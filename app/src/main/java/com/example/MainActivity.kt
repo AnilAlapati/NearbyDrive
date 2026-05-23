@@ -46,6 +46,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import com.example.data.*
 import com.example.ui.theme.*
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.compose.ui.viewinterop.AndroidView
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,6 +108,25 @@ fun getCountryConfig(code: String): CountryConfig {
 
 @Composable
 fun MainScreen() {
+    var isWebPortalActive by remember { mutableStateOf(false) }
+
+    if (isWebPortalActive) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            WebViewPortal()
+            FloatingActionButton(
+                onClick = { isWebPortalActive = false },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .padding(bottom = 32.dp),
+                containerColor = OceanBlue
+            ) {
+                Icon(Icons.Filled.Close, contentDescription = "Close Web Portal", tint = Color.White)
+            }
+        }
+        return
+    }
+
     val appViewModel: NearbyDriveViewModel = viewModel()
     
     val profileState by appViewModel.profile.collectAsStateWithLifecycle()
@@ -215,7 +238,8 @@ fun MainScreen() {
                 profile = profileState,
                 selectedCountry = userCountry,
                 onCountryChanged = { appViewModel.setCountry(it) },
-                config = countryConfig
+                config = countryConfig,
+                onToggleWebPortal = { isWebPortalActive = true }
             )
 
             // Missing profile/verification warnings
@@ -439,7 +463,8 @@ fun HeaderView(
     profile: ProfileEntity?,
     selectedCountry: String,
     onCountryChanged: (String) -> Unit,
-    config: CountryConfig
+    config: CountryConfig,
+    onToggleWebPortal: () -> Unit = {}
 ) {
     var showCountryMenu by remember { mutableStateOf(false) }
 
@@ -553,8 +578,49 @@ fun HeaderView(
                     }
                 }
             }
+
+            // Web Portal Toggle
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(OceanBlue)
+                    .clickable(onClick = onToggleWebPortal)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Filled.Web,
+                        contentDescription = "Web Portal",
+                        tint = Color.White,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "WEB",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
+                    )
+                }
+            }
         }
     }
+}
+
+@Composable
+fun WebViewPortal() {
+    AndroidView(
+        factory = { context ->
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.cacheMode = WebSettings.LOAD_DEFAULT
+                webViewClient = WebViewClient()
+                loadUrl("https://nearbydrive.com")
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    )
 }
 
 @Composable
