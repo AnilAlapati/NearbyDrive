@@ -614,9 +614,11 @@ fun WebViewPortal() {
             WebView(context).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
+                settings.allowFileAccess = true
+                settings.allowContentAccess = true
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
                 webViewClient = WebViewClient()
-                loadUrl("https://nearbydrive.com")
+                loadUrl("file:///android_asset/web/index.html")
             }
         },
         modifier = Modifier.fillMaxSize()
