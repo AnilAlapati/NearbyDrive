@@ -2659,6 +2659,101 @@ fun ProfileScreen(
                 }
             }
         }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().testTag("firebase_sync_card"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.Cloud,
+                            contentDescription = "Cloud Database Sync Status icon",
+                            tint = OceanBlue,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Firebase Cloud Database Sync",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = OceanBlue
+                        )
+                    }
+
+                    val configured = FirebaseSyncManager.isConfigured()
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (configured) MintGreen.copy(alpha = 0.12f) else SoftGray)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(if (configured) MintGreen else SlateBlueText.copy(alpha = 0.5f))
+                            )
+                            Text(
+                                text = if (configured) "CONNECTED & SYNCHRONIZING" else "OFFLINE LOCAL DATABASE MODE",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (configured) MintGreen else SlateBlueText
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "When connected, custom rides and bookings are saved to your global community cloud, keeping neighbors synchronized across all active devices in real-time.",
+                        fontSize = 12.sp,
+                        color = SlateBlueText,
+                        lineHeight = 17.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    HorizontalDivider(color = SoftGray)
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "HOW TO CONNECT YOUR OWN BACKEND:",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = SlateBlueText.copy(alpha = 0.7f),
+                        letterSpacing = 0.5.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "1. Open the Secrets Panel on the left sidebar in Google AI Studio.\n" +
+                               "2. Add the following environment keys with your Firebase project properties:\n" +
+                               "   • FIREBASE_API_KEY\n" +
+                               "   • FIREBASE_PROJECT_ID\n" +
+                               "   • FIREBASE_APPLICATION_ID\n" +
+                               "3. Recompile the app — dynamic initialization handles the connection out-of-the-box!",
+                        fontSize = 11.sp,
+                        color = SlateDark,
+                        lineHeight = 17.sp
+                    )
+                }
+            }
+        }
     }
 
     if (showVerifyDialog) {

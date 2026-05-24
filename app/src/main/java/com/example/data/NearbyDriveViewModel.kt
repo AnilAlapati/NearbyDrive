@@ -85,6 +85,11 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 )
             }
+            try {
+                FirebaseSyncManager.startBilateralSync(application, database)
+            } catch (e: Throwable) {
+                android.util.Log.e("NearbyDriveVM", "Failed to start Firebase sync: ${e.message}", e)
+            }
         }
     }
 
@@ -160,13 +165,23 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
                 status = "Available",
                 isEv = isEv
             )
-            repository.addVehicle(newVehicle)
+            val newId = repository.addVehicle(newVehicle)
+            try {
+                FirebaseSyncManager.pushVehicleToCloud(newVehicle.copy(id = newId))
+            } catch (e: Throwable) {
+                android.util.Log.e("NearbyDriveVM", "Firestore push vehicle error: ${e.message}", e)
+            }
         }
     }
 
     fun deleteVehicle(vehicle: VehicleEntity) {
         viewModelScope.launch {
             repository.deleteVehicle(vehicle)
+            try {
+                FirebaseSyncManager.deleteVehicleFromCloud(vehicle)
+            } catch (e: Throwable) {
+                android.util.Log.e("NearbyDriveVM", "Firestore delete vehicle error: ${e.message}", e)
+            }
         }
     }
 
@@ -200,27 +215,58 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
                 startHour = startHour,
                 status = "Requested"
             )
-            repository.createBooking(booking)
+            val newId = repository.createBooking(booking)
+            try {
+                FirebaseSyncManager.pushBookingToCloud(booking.copy(id = newId))
+            } catch (e: Throwable) {
+                android.util.Log.e("NearbyDriveVM", "Firestore push booking error: ${e.message}", e)
+            }
         }
     }
 
     fun updateBookingStatus(booking: BookingEntity, nextStatus: String) {
         viewModelScope.launch {
             repository.updateBookingStatus(booking.id, nextStatus)
+            val updatedBooking = booking.copy(status = nextStatus)
+            try {
+                FirebaseSyncManager.pushBookingToCloud(updatedBooking)
+            } catch (e: Throwable) {
+                android.util.Log.e("NearbyDriveVM", "Firestore push booking update error: ${e.message}", e)
+            }
             
             // If rental is approved, update the vehicle status accordingly
             if (nextStatus == "Approved") {
                 val vehicle = repository.getVehicleById(booking.vehicleId)
                 if (vehicle != null) {
-                    repository.updateVehicle(vehicle.copy(status = "Rented"))
+                    val updatedVehicle = vehicle.copy(status = "Rented")
+                    repository.updateVehicle(updatedVehicle)
+                    try {
+                        FirebaseSyncManager.pushVehicleToCloud(updatedVehicle)
+                    } catch (e: Throwable) {
+                        android.util.Log.e("NearbyDriveVM", "Firestore push vehicle update error: ${e.message}", e)
+                    }
                 }
             } else if (nextStatus == "Completed" || nextStatus == "Cancelled") {
                 val vehicle = repository.getVehicleById(booking.vehicleId)
                 if (vehicle != null) {
-                    // Check if there are any other approved bookings currently active or simply free it
-                    repository.updateVehicle(vehicle.copy(status = "Available"))
+                    val updatedVehicle = vehicle.copy(status = "Available")
+                    repository.updateVehicle(updatedVehicle)
+                    try {
+                        FirebaseSyncManager.pushVehicleToCloud(updatedVehicle)
+                    } catch (e: Throwable) {
+                        android.util.Log.e("NearbyDriveVM", "Firestore push vehicle update error: ${e.message}", e)
+                    }
                 }
             }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            FirebaseSyncManager.stopSync()
+        } catch (e: Throwable) {
+            android.util.Log.e("NearbyDriveVM", "Firestore stop sync error: ${e.message}", e)
         }
     }
 
