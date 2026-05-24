@@ -56,5 +56,8 @@ data class ProfileEntity(
     val tripsOffered: Int = 0,
     val tripsTaken: Int = 0,
     val ratingAsHost: Double = 4.8,
-    val ratingAsRider: Double = 4.9
+    val ratingAsRider: Double = 4.9,
+    val email: String = "",
+    val isLoggedIn: Boolean = false,
+    val authProvider: String = "Email" // "Email" or "Google" or "Fallback"
 )

@@ -29,6 +29,11 @@ class ExampleRobolectricTest {
     // Wait for composition and database load
     composeTestRule.waitForIdle()
 
+    // Robust wait until vehicles database has fully loaded and populated the Browse screen
+    composeTestRule.waitUntil(timeoutMillis = 5000) {
+      composeTestRule.onAllNodesWithTag("book_button_1").fetchSemanticsNodes().isNotEmpty()
+    }
+
     // Print the root to see what warning cards or elements are present
     composeTestRule.onRoot().printToLog("TEST_LOG")
 

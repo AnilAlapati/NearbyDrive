@@ -121,6 +121,13 @@ fun MainScreen() {
     
     val countryConfig = getCountryConfig(userCountry)
 
+    // Auth screen check: force login/signup before using the app!
+    val isLoggedIn = profileState?.isLoggedIn == true
+    if (!isLoggedIn) {
+        com.example.ui.auth.AuthenticationScreen(appViewModel = appViewModel)
+        return
+    }
+
     var activeTab by remember { mutableStateOf("Browse") }
     
     // States for custom modals
@@ -400,6 +407,9 @@ fun MainScreen() {
                             profile = profileState,
                             onSaveProfile = { name, block, flat, phone, isVerified ->
                                 appViewModel.saveProfile(name, block, flat, phone, isVerified)
+                            },
+                            onLogout = {
+                                appViewModel.logout()
                             },
                             config = countryConfig
                         )
@@ -2300,6 +2310,7 @@ fun StatusBadge(status: String) {
 fun ProfileScreen(
     profile: ProfileEntity?,
     onSaveProfile: (String, String, String, String, Boolean) -> Unit,
+    onLogout: () -> Unit = {},
     config: CountryConfig
 ) {
     var name by remember(profile) { mutableStateOf(profile?.name ?: "") }
@@ -2628,6 +2639,22 @@ fun ProfileScreen(
                             Icon(Icons.Filled.Save, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Save Society Profile", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedButton(
+                        onClick = { onLogout() },
+                        modifier = Modifier.fillMaxWidth().testTag("profile_logout_button"),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentCoral),
+                        border = BorderStroke(1.5.dp, AccentCoral.copy(alpha = 0.3f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.ExitToApp, contentDescription = "Exit icon", tint = AccentCoral)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Sign Out of NearbyDrive", fontWeight = FontWeight.Bold)
                         }
                     }
 
