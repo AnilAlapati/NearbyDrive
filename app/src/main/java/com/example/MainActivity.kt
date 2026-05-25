@@ -54,6 +54,27 @@ import com.example.ui.theme.*
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Define global crash hook logger & storage
+        val oldHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            android.util.Log.e("CRASH_DUMP", "CRITICAL ERROR OCCURRED! APPNET CRASH PREVENTED / LOGGED", throwable)
+            try {
+                val prefs = getSharedPreferences("nearby_drive_prefs", android.content.Context.MODE_PRIVATE)
+                val sw = java.io.StringWriter()
+                val pw = java.io.PrintWriter(sw)
+                throwable.printStackTrace(pw)
+                prefs.edit().putString("last_crash_log", sw.toString()).apply()
+            } catch (e: Throwable) {
+                // Suppress save-related errors
+            }
+            if (oldHandler != null) {
+                oldHandler.uncaughtException(thread, throwable)
+            } else {
+                java.lang.System.exit(1)
+            }
+        }
+
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
@@ -131,6 +152,76 @@ fun MainScreen() {
 
     var activeTab by remember { mutableStateOf("Browse") }
     
+    // Recovery Dialog if previous sessions crashed
+    val crashContext = androidx.compose.ui.platform.LocalContext.current
+    val crashPrefs = remember { crashContext.getSharedPreferences("nearby_drive_prefs", android.content.Context.MODE_PRIVATE) }
+    var crashLog by remember { mutableStateOf(crashPrefs.getString("last_crash_log", null)) }
+
+    if (crashLog != null) {
+        AlertDialog(
+            onDismissRequest = {
+                crashPrefs.edit().remove("last_crash_log").apply()
+                crashLog = null
+            },
+            title = {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Filled.Warning,
+                        contentDescription = "Crash Report",
+                        tint = AccentCoral,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("System Exception Captured 🛡️", color = SlateDark, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "The app has recovered from an unexpected exception. Below is the technical stacktrace. Tap \"Reset & Continue\" to dismiss and load the app normally.",
+                        fontSize = 11.5.sp,
+                        color = SlateBlueText,
+                        lineHeight = 16.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1E1E2E))
+                            .border(1.dp, Color(0xFF3B3B4F), RoundedCornerShape(8.dp))
+                            .padding(8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            Text(
+                                text = crashLog ?: "",
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                color = Color(0xFFFCA5A5)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        crashPrefs.edit().remove("last_crash_log").apply()
+                        crashLog = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = OceanBlue)
+                ) {
+                    Text("Reset & Continue")
+                }
+            }
+        )
+    }
+
     // States for custom modals
     var bookingVehicleTarget by remember { mutableStateOf<VehicleEntity?>(null) }
     var calendarPrefilledDate by remember { mutableStateOf<String?>(null) }
