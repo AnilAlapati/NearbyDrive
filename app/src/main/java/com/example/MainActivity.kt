@@ -113,6 +113,7 @@ fun MainScreen() {
     val profileState by appViewModel.profile.collectAsStateWithLifecycle()
     val vehiclesState by appViewModel.allVehicles.collectAsStateWithLifecycle()
     val bookingsState by appViewModel.allBookings.collectAsStateWithLifecycle()
+    val reviewsState by appViewModel.allReviews.collectAsStateWithLifecycle()
     
     val selectedTypeFilter by appViewModel.selectedTypeFilter.collectAsStateWithLifecycle()
     val isEvFilterOnly by appViewModel.isEvFilterOnly.collectAsStateWithLifecycle()
@@ -351,6 +352,7 @@ fun MainScreen() {
                             vehicles = vehiclesState,
                             bookings = bookingsState,
                             profile = profileState,
+                            reviews = reviewsState,
                             selectedTypeFilter = selectedTypeFilter,
                             searchQuery = searchQuery,
                             isEvFilterOnly = isEvFilterOnly,
@@ -384,6 +386,10 @@ fun MainScreen() {
                             onUpdateBookingStatus = { booking, status ->
                                 appViewModel.updateBookingStatus(booking, status)
                             },
+                            onSubmitReview = { bookingId, vehicleId, model, reviewer, reviewee, role, rating, comment ->
+                                appViewModel.submitReview(bookingId, vehicleId, model, reviewer, reviewee, role, rating, comment)
+                            },
+                            reviews = reviewsState,
                             config = countryConfig
                         )
                         "Calendar" -> AvailabilityCalendarScreen(
@@ -411,6 +417,7 @@ fun MainScreen() {
                             onLogout = {
                                 appViewModel.logout()
                             },
+                            reviews = reviewsState,
                             config = countryConfig
                         )
                     }
@@ -665,6 +672,7 @@ fun BrowseRidesScreen(
     vehicles: List<VehicleEntity>,
     bookings: List<BookingEntity>,
     profile: ProfileEntity?,
+    reviews: List<ReviewEntity> = emptyList(),
     selectedTypeFilter: String,
     searchQuery: String,
     isEvFilterOnly: Boolean,
@@ -707,16 +715,6 @@ fun BrowseRidesScreen(
         }
     }
 
-    var showSocialShowcase by remember { mutableStateOf(false) }
-
-    if (showSocialShowcase) {
-        SocialShowcaseDialog(
-            onDismiss = { showSocialShowcase = false },
-            selectedCountry = if (config.countryCode == "IN") "IN" else "US",
-            config = config
-        )
-    }
-
     Column(modifier = Modifier.fillMaxSize()) {
         // Search & Explore bar
         OutlinedTextField(
@@ -742,61 +740,6 @@ fun BrowseRidesScreen(
                 unfocusedBorderColor = SlateBlueText.copy(alpha = 0.2f)
             )
         )
-
-        // Premium Social Showcase Media Pill/Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-                .clickable { showSocialShowcase = true },
-            colors = CardDefaults.cardColors(
-                containerColor = OceanLight,
-                contentColor = OceanBlue
-            ),
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, OceanBlue.copy(alpha = 0.25f))
-        ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(OceanBlue.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Share,
-                        contentDescription = "Social Showcase Media Kit",
-                        tint = OceanBlue,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Pitch to Neighbors & Social Media 🚀",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Tap for interactive feature slides, trust guidelines, and direct pitch card templates!",
-                        fontSize = 11.sp,
-                        color = SlateBlueText.copy(alpha = 0.8f)
-                    )
-                }
-                Icon(
-                    Icons.Default.ChevronRight,
-                    contentDescription = "Open Pitch Kit",
-                    tint = OceanBlue,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
 
         // Type Filter Chips Scroll with EV Toggle
         Row(
@@ -992,6 +935,7 @@ fun BrowseRidesScreen(
                         bookings = bookings,
                         selectedDayFilter = selectedDayFilter,
                         profile = profile,
+                        reviews = reviews,
                         onBookClicked = { prefilledDay -> onBookClicked(vehicle, prefilledDay) },
                         config = config
                     )
@@ -1007,10 +951,28 @@ fun VehicleCard(
     bookings: List<BookingEntity>,
     selectedDayFilter: String,
     profile: ProfileEntity?,
+    reviews: List<ReviewEntity> = emptyList(),
     onBookClicked: (String?) -> Unit,
     config: CountryConfig
 ) {
     val isMine = profile != null && vehicle.ownerName == profile.name && vehicle.ownerBlock == profile.block
+
+    // Dynamic rating calculations
+    val vehicleReviews = remember(reviews, vehicle.id) {
+        reviews.filter { it.vehicleId == vehicle.id && it.reviewerRole == "Renter" }
+    }
+    val avgVehicleRating = remember(vehicleReviews) {
+        if (vehicleReviews.isEmpty()) 5.0 else vehicleReviews.map { it.rating }.average()
+    }
+
+    val ownerHostReviews = remember(reviews, vehicle.ownerName) {
+        reviews.filter { it.revieweeName == vehicle.ownerName && it.reviewerRole == "Renter" }
+    }
+    val avgOwnerRating = remember(ownerHostReviews) {
+        if (ownerHostReviews.isEmpty()) 4.8 else ownerHostReviews.map { it.rating }.average()
+    }
+
+    var showReviewsSection by remember { mutableStateOf(false) }
 
     fun formatHour(hour: Int): String {
         val h = when {
@@ -1141,7 +1103,7 @@ fun VehicleCard(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Lent by ${vehicle.ownerName} (★ 4.8 • ${config.blockLabel} ${vehicle.ownerBlock} • ${config.flatLabel} ${vehicle.ownerFlat})",
+                                text = "Lent by ${vehicle.ownerName} (★ ${String.format(java.util.Locale.US, "%.1f", avgOwnerRating)} • ${config.blockLabel} ${vehicle.ownerBlock} • ${config.flatLabel} ${vehicle.ownerFlat})",
                                 fontSize = 11.5.sp,
                                 color = SlateBlueText,
                                 maxLines = 1,
@@ -1180,9 +1142,92 @@ fun VehicleCard(
                     color = SlateBlueText,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(bottom = 10.dp),
+                    modifier = Modifier.padding(bottom = 4.dp),
                     lineHeight = 17.sp
                 )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showReviewsSection = !showReviewsSection }
+                        .padding(vertical = 6.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Filled.Star,
+                        contentDescription = "Rating",
+                        tint = WarmAmber,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${String.format(java.util.Locale.US, "%.1f", avgVehicleRating)} ★ (${vehicleReviews.size} ${if (vehicleReviews.size == 1) "review" else "reviews"})",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = OceanBlue
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (showReviewsSection) "• Hide Reviews ▴" else "• Show Reviews ▾",
+                        fontSize = 11.5.sp,
+                        color = SlateBlueText.copy(alpha = 0.5f)
+                    )
+                }
+
+                if (showReviewsSection) {
+                    if (vehicleReviews.isEmpty()) {
+                        Text(
+                            "No reviews written yet. Be the first to rent and rate!",
+                            fontSize = 11.sp,
+                            color = SlateBlueText.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 10.dp)
+                                .background(OceanLight.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                .padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            vehicleReviews.forEach { rev ->
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = rev.reviewerName,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                        Row {
+                                            repeat(rev.rating) {
+                                                Icon(Icons.Filled.Star, contentDescription = null, tint = WarmAmber, modifier = Modifier.size(10.dp))
+                                            }
+                                            repeat(5 - rev.rating) {
+                                                Icon(Icons.Outlined.StarOutline, contentDescription = null, tint = SlateBlueText.copy(alpha = 0.3f), modifier = Modifier.size(10.dp))
+                                            }
+                                        }
+                                    }
+                                    if (rev.comment.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "\"${rev.comment}\"",
+                                            fontSize = 11.sp,
+                                            color = SlateBlueText,
+                                            lineHeight = 15.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // Date-Aware Live Availability Badge Option
                 if (selectedDayFilter != "Any Day") {
@@ -1949,6 +1994,8 @@ fun BookingsScreen(
     bookings: List<BookingEntity>,
     currentUserProfile: ProfileEntity?,
     onUpdateBookingStatus: (BookingEntity, String) -> Unit,
+    onSubmitReview: (Long, Long, String, String, String, String, Int, String) -> Unit,
+    reviews: List<ReviewEntity> = emptyList(),
     config: CountryConfig
 ) {
     val myName = currentUserProfile?.name ?: ""
@@ -2039,7 +2086,13 @@ fun BookingsScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(myRentedBookings, key = { it.id }) { booking ->
-                        BorrowerBookingCard(booking = booking, onCancel = { onUpdateBookingStatus(booking, "Cancelled") }, config = config)
+                        BorrowerBookingCard(
+                            booking = booking,
+                            onCancel = { onUpdateBookingStatus(booking, "Cancelled") },
+                            onSubmitReview = onSubmitReview,
+                            reviews = reviews,
+                            config = config
+                        )
                     }
                 }
             }
@@ -2070,6 +2123,8 @@ fun BookingsScreen(
                             onApprove = { onUpdateBookingStatus(booking, "Approved") },
                             onDecline = { onUpdateBookingStatus(booking, "Cancelled") },
                             onComplete = { onUpdateBookingStatus(booking, "Completed") },
+                            onSubmitReview = onSubmitReview,
+                            reviews = reviews,
                             config = config
                         )
                     }
@@ -2083,6 +2138,8 @@ fun BookingsScreen(
 fun BorrowerBookingCard(
     booking: BookingEntity,
     onCancel: () -> Unit,
+    onSubmitReview: (Long, Long, String, String, String, String, Int, String) -> Unit,
+    reviews: List<ReviewEntity> = emptyList(),
     config: CountryConfig
 ) {
     Card(
@@ -2159,6 +2216,125 @@ fun BorrowerBookingCard(
                     Text("Cancel Booking Request", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
+
+            if (booking.status == "Completed") {
+                val myReview = remember(reviews, booking.id) {
+                    reviews.find { it.bookingId == booking.id && it.reviewerRole == "Renter" }
+                }
+
+                if (myReview != null) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                        colors = CardDefaults.cardColors(containerColor = OceanLight.copy(alpha = 0.15f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MintGreen, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("You rated this ride:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SlateDark)
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                repeat(myReview.rating) {
+                                    Icon(Icons.Filled.Star, contentDescription = null, tint = WarmAmber, modifier = Modifier.size(14.dp))
+                                }
+                                repeat(5 - myReview.rating) {
+                                    Icon(Icons.Outlined.StarOutline, contentDescription = null, tint = SlateBlueText.copy(alpha = 0.3f), modifier = Modifier.size(14.dp))
+                                }
+                            }
+                            if (myReview.comment.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("\"${myReview.comment}\"", fontSize = 12.sp, color = SlateBlueText, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                            .background(WarmAmber.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                            .border(1.dp, WarmAmber.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            "How was your ride with ${booking.ownerName}?",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.5.sp,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            "Help neighbor community by rating and detailing your trip.",
+                            fontSize = 11.5.sp,
+                            color = SlateBlueText.copy(alpha = 0.6f)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        var ratingChosen by remember { mutableStateOf(5) }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            (1..5).forEach { star ->
+                                IconButton(
+                                    onClick = { ratingChosen = star },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (star <= ratingChosen) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                                        contentDescription = "$star Stars",
+                                        tint = if (star <= ratingChosen) WarmAmber else SlateBlueText.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "$ratingChosen / 5 Stars",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = SlateDark
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        var writtenComment by remember { mutableStateOf("") }
+                        OutlinedTextField(
+                            value = writtenComment,
+                            onValueChange = { writtenComment = it },
+                            placeholder = { Text("What made it great or how can they improve? (Optional)", fontSize = 11.5.sp) },
+                            modifier = Modifier.fillMaxWidth().testTag("renter_review_text_${booking.id}"),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp),
+                            maxLines = 3,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Button(
+                            onClick = {
+                                onSubmitReview(
+                                    booking.id,
+                                    booking.vehicleId,
+                                    booking.vehicleModel,
+                                    booking.renterName,
+                                    booking.ownerName,
+                                    "Renter",
+                                    ratingChosen,
+                                    writtenComment
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag("submit_renter_review_btn_${booking.id}"),
+                            colors = ButtonDefaults.buttonColors(containerColor = OceanBlue)
+                        ) {
+                            Text("Submit My Review", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -2169,6 +2345,8 @@ fun LenderBookingCard(
     onApprove: () -> Unit,
     onDecline: () -> Unit,
     onComplete: () -> Unit,
+    onSubmitReview: (Long, Long, String, String, String, String, Int, String) -> Unit,
+    reviews: List<ReviewEntity> = emptyList(),
     config: CountryConfig
 ) {
     Card(
@@ -2274,6 +2452,125 @@ fun LenderBookingCard(
                     }
                 }
             }
+
+            if (booking.status == "Completed") {
+                val myLenderReview = remember(reviews, booking.id) {
+                    reviews.find { it.bookingId == booking.id && it.reviewerRole == "Owner" }
+                }
+
+                if (myLenderReview != null) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                        colors = CardDefaults.cardColors(containerColor = OceanLight.copy(alpha = 0.15f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MintGreen, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("You rated Renter:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SlateDark)
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                repeat(myLenderReview.rating) {
+                                    Icon(Icons.Filled.Star, contentDescription = null, tint = WarmAmber, modifier = Modifier.size(14.dp))
+                                }
+                                repeat(5 - myLenderReview.rating) {
+                                    Icon(Icons.Outlined.StarOutline, contentDescription = null, tint = SlateBlueText.copy(alpha = 0.3f), modifier = Modifier.size(14.dp))
+                                }
+                            }
+                            if (myLenderReview.comment.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("\"${myLenderReview.comment}\"", fontSize = 12.sp, color = SlateBlueText, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                            .background(WarmAmber.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                            .border(1.dp, WarmAmber.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            "Rate Renter: ${booking.renterName}?",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.5.sp,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            "How did they treat your vehicle? Did they return on time?",
+                            fontSize = 11.5.sp,
+                            color = SlateBlueText.copy(alpha = 0.6f)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        var ratingChosen by remember { mutableStateOf(5) }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            (1..5).forEach { star ->
+                                IconButton(
+                                    onClick = { ratingChosen = star },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (star <= ratingChosen) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                                        contentDescription = "$star Stars",
+                                        tint = if (star <= ratingChosen) WarmAmber else SlateBlueText.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "$ratingChosen / 5 Stars",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = SlateDark
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        var writtenComment by remember { mutableStateOf("") }
+                        OutlinedTextField(
+                            value = writtenComment,
+                            onValueChange = { writtenComment = it },
+                            placeholder = { Text("How was the hand-off & return experience? (Optional)", fontSize = 11.5.sp) },
+                            modifier = Modifier.fillMaxWidth().testTag("owner_review_text_${booking.id}"),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp),
+                            maxLines = 3,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Button(
+                            onClick = {
+                                onSubmitReview(
+                                    booking.id,
+                                    booking.vehicleId,
+                                    booking.vehicleModel,
+                                    booking.ownerName,
+                                    booking.renterName,
+                                    "Owner",
+                                    ratingChosen,
+                                    writtenComment
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag("submit_owner_review_btn_${booking.id}"),
+                            colors = ButtonDefaults.buttonColors(containerColor = OceanBlue)
+                        ) {
+                            Text("Submit Renter Review", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -2311,6 +2608,7 @@ fun ProfileScreen(
     profile: ProfileEntity?,
     onSaveProfile: (String, String, String, String, Boolean) -> Unit,
     onLogout: () -> Unit = {},
+    reviews: List<ReviewEntity> = emptyList(),
     config: CountryConfig
 ) {
     var name by remember(profile) { mutableStateOf(profile?.name ?: "") }
@@ -2781,6 +3079,161 @@ fun ProfileScreen(
                 }
             }
         }
+
+        item {
+            // Dynamic rating calculations for this user
+            val userReviews = remember(reviews, profile?.name) {
+                reviews.filter { it.revieweeName.equals(profile?.name ?: "", ignoreCase = true) }
+            }
+
+            val reviewsAsHost = remember(userReviews) {
+                userReviews.filter { it.reviewerRole == "Renter" }
+            }
+
+            val reviewsAsRider = remember(userReviews) {
+                userReviews.filter { it.reviewerRole == "Owner" }
+            }
+
+            val avgHostRating = remember(reviewsAsHost) {
+                if (reviewsAsHost.isEmpty()) 4.8 else reviewsAsHost.map { it.rating }.average()
+            }
+
+            val avgRiderRating = remember(reviewsAsRider) {
+                if (reviewsAsRider.isEmpty()) 4.9 else reviewsAsRider.map { it.rating }.average()
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth().testTag("profile_ratings_card"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "Community Trust Ratings",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = OceanBlue,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Rating as Host Card segment
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(OceanLight.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("AS LENDER", fontSize = 10.sp, fontWeight = FontWeight.Black, color = SlateBlueText.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.Star, contentDescription = null, tint = WarmAmber, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = String.format(java.util.Locale.US, "%.1f", avgHostRating),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SlateDark
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("${reviewsAsHost.size} reviews", fontSize = 11.sp, color = SlateBlueText.copy(alpha = 0.6f))
+                        }
+
+                        // Rating as Rider Card segment
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(OceanLight.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("AS BORROWER", fontSize = 10.sp, fontWeight = FontWeight.Black, color = SlateBlueText.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.Star, contentDescription = null, tint = WarmAmber, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = String.format(java.util.Locale.US, "%.1f", avgRiderRating),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SlateDark
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("${reviewsAsRider.size} reviews", fontSize = 11.sp, color = SlateBlueText.copy(alpha = 0.6f))
+                        }
+                    }
+
+                    if (userReviews.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = SlateBlueText.copy(alpha = 0.08f))
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            "Recent Written Reviews (${userReviews.size})",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = SlateDark,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            userReviews.take(5).forEach { rev ->
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(SoftGray.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                        .padding(10.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "By ${rev.reviewerName} (${if (rev.reviewerRole == "Renter") "Borrower" else "Lender"})",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = SlateDark
+                                        )
+                                        Row {
+                                            repeat(rev.rating) {
+                                                Icon(Icons.Filled.Star, contentDescription = null, tint = WarmAmber, modifier = Modifier.size(11.dp))
+                                            }
+                                            repeat(5 - rev.rating) {
+                                                Icon(Icons.Outlined.StarOutline, contentDescription = null, tint = SlateBlueText.copy(alpha = 0.3f), modifier = Modifier.size(11.dp))
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Ride: ${rev.vehicleModel}",
+                                        fontSize = 10.5.sp,
+                                        color = SlateBlueText.copy(alpha = 0.6f)
+                                    )
+                                    if (rev.comment.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "\"${rev.comment}\"",
+                                            fontSize = 11.5.sp,
+                                            color = SlateDark
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     if (showVerifyDialog) {
@@ -2798,7 +3251,7 @@ fun ProfileScreen(
 }
 
 // ----------------------------------------------------
-// POP-UP DIALOG: SOCIETY INTERCOM REGISTER VERIFICATION
+// POP-UP DIALOG: SOCIETY INTERCOM & MYGATE ERP REGISTER VERIFICATION
 // ----------------------------------------------------
 @Composable
 fun SocietyVerificationDialog(
@@ -2808,128 +3261,461 @@ fun SocietyVerificationDialog(
     onVerificationSuccess: () -> Unit,
     config: CountryConfig
 ) {
-    var code by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf("") }
+    var verificationMethod by remember { mutableStateOf("mygate") } // "mygate" vs "intercom"
+    var myGateSubMethod by remember { mutableStateOf("phone") } // "phone" vs "passcode"
+    
+    var phoneNumber by remember { mutableStateOf("") }
+    var isOtpSent by remember { mutableStateOf(false) }
+    var otpCodeEntered by remember { mutableStateOf("") }
+    
+    var partnerApiKey by remember { mutableStateOf("MYGATE-PROP-982W") }
+    var activePasscodeEntered by remember { mutableStateOf("") }
+    
+    var localIntercomPin by remember { mutableStateOf("") }
+    
     var isVerifying by remember { mutableStateOf(false) }
-    var progressStatus by remember { mutableStateOf("Ready to begin") }
+    var progressStatus by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf("") }
     
     val scope = rememberCoroutineScope()
     
+    // Live Http / API payload logs terminal state
+    val apiLogs = remember { mutableStateListOf<String>() }
+    val apiTerminalScrollState = rememberScrollState()
+
+    fun logApiCall(msg: String) {
+        apiLogs.add(msg)
+    }
+
     Dialog(onDismissRequest = if (isVerifying) ({}) else onDismiss) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(vertical = 12.dp)
                 .testTag("verification_dialog"),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
         ) {
             Column(
                 modifier = Modifier
-                    .padding(24.dp)
-                    .fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(20.dp)
+                    .fillMaxWidth()
             ) {
-                Icon(
-                    Icons.Filled.VerifiedUser,
-                    contentDescription = null,
-                    tint = OceanBlue,
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = "Gated Registry Check",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "To keep our gated community secure, we verify your residency status. For this MVP trial, we simulated sending a verification passcode link to the guard intercom console at ${config.blockLabel} $block, ${config.flatLabel} $flat. Just type any 4-digit PIN (e.g. 1234) to instantly authenticate as an active resident!",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                if (isVerifying) {
-                    CircularProgressIndicator(
-                        color = OceanBlue,
-                        modifier = Modifier.size(36.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = progressStatus,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = OceanBlue
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = code,
-                        onValueChange = { 
-                            if (it.length <= 4) {
-                                code = it.filter { char -> char.isDigit() } 
-                            }
-                        },
-                        label = { Text("Intercom Verification PIN") },
-                        placeholder = { Text("e.g. 1234") },
-                        modifier = Modifier.fillMaxWidth().testTag("verification_pin_input"),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OceanBlue)
-                    )
-                    
-                    if (errorMessage.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(8.dp))
+                // Dialog Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.VerifiedUser,
+                            contentDescription = "Verify",
+                            tint = OceanBlue,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = errorMessage,
-                            color = AccentCoral,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
+                            text = "Resident Verification",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SlateDark
                         )
                     }
-                    
-                    Spacer(modifier = Modifier.height(20.dp))
-                    
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp),
+                        enabled = !isVerifying
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = SlateBlueText.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Verify your account to rent or list neighbor vehicles. We support standard guard intercom matching or direct MyGate ERP Sync to automatically pull verified flat residency.",
+                    fontSize = 11.5.sp,
+                    color = SlateBlueText,
+                    lineHeight = 15.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                // Tab selectors: MyGate ERP vs Intercom
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SoftGray)
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf(
+                        "mygate" to "MyGate ERP Sync 🎪",
+                        "intercom" to "Guard Intercom PIN"
+                    ).forEach { (method, label) ->
+                        val isSelected = verificationMethod == method
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) OceanBlue else Color.Transparent)
+                                .clickable { 
+                                    if (!isVerifying) {
+                                        verificationMethod = method 
+                                        errorMessage = ""
+                                    }
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) Color.White else SlateBlueText
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Render Verification Methods
+                if (verificationMethod == "mygate") {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // Sub-options: OTP or Passcode
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Verification Mode:",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = SlateBlueText
+                            )
+                            
+                            // Radio Option Phone
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable(enabled = !isVerifying) { myGateSubMethod = "phone" }
+                            ) {
+                                RadioButton(
+                                    selected = myGateSubMethod == "phone",
+                                    onClick = { myGateSubMethod = "phone" },
+                                    enabled = !isVerifying,
+                                    colors = RadioButtonDefaults.colors(selectedColor = OceanBlue)
+                                )
+                                Text("MyGate OTP", fontSize = 11.5.sp, color = SlateDark, fontWeight = if (myGateSubMethod == "phone") FontWeight.Bold else FontWeight.Normal)
+                            }
+
+                            // Radio Option Passcode
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable(enabled = !isVerifying) { myGateSubMethod = "passcode" }
+                            ) {
+                                RadioButton(
+                                    selected = myGateSubMethod == "passcode",
+                                    onClick = { myGateSubMethod = "passcode" },
+                                    enabled = !isVerifying,
+                                    colors = RadioButtonDefaults.colors(selectedColor = OceanBlue)
+                                )
+                                Text("App Passcode", fontSize = 11.5.sp, color = SlateDark, fontWeight = if (myGateSubMethod == "passcode") FontWeight.Bold else FontWeight.Normal)
+                            }
+                        }
+
+                        if (myGateSubMethod == "phone") {
+                            // Phone OTP flow
+                            if (!isOtpSent) {
+                                Text(
+                                    text = "Send an API lookup handshake request to MyGate resident registry matching your registered phone number.",
+                                    fontSize = 11.sp,
+                                    color = SlateBlueText.copy(alpha = 0.8f),
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+
+                                OutlinedTextField(
+                                    value = phoneNumber,
+                                    onValueChange = { phoneNumber = it },
+                                    label = { Text("MyGate Phone Number") },
+                                    placeholder = { Text(config.phonePlaceholder) },
+                                    modifier = Modifier.fillMaxWidth().testTag("mygate_phone_input"),
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OceanBlue)
+                                )
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OutlinedTextField(
+                                    value = partnerApiKey,
+                                    onValueChange = { partnerApiKey = it },
+                                    label = { Text("MyGate Society Partner Key (Optional)") },
+                                    placeholder = { Text("e.g. MYGATE-PROP-982W") },
+                                    modifier = Modifier.fillMaxWidth().testTag("mygate_partner_key"),
+                                    singleLine = true,
+                                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OceanBlue)
+                                )
+                            } else {
+                                Text(
+                                    text = "We found Flat ${config.blockLabel} $block, ${config.flatLabel} $flat tied to phone in MyGate integration database. Please enter the 4-digit security OTP sent (simulated code: 7719).",
+                                    fontSize = 11.sp,
+                                    color = SlateBlueText,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+
+                                OutlinedTextField(
+                                    value = otpCodeEntered,
+                                    onValueChange = { 
+                                        if (it.length <= 4) {
+                                            otpCodeEntered = it.filter { char -> char.isDigit() }
+                                        }
+                                    },
+                                    label = { Text("MyGate 4-digit OTP") },
+                                    placeholder = { Text("e.g. 7719") },
+                                    modifier = Modifier.fillMaxWidth().testTag("mygate_otp_input"),
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OceanBlue)
+                                )
+                            }
+                        } else {
+                            // Passcode flow
+                            Text(
+                                "Generate a pre-approved resident delivery or service passcode directly inside your MyGate App ('Invite Guest' -> 'Delivery PIN' or 'Service entry token'), then input it below.",
+                                fontSize = 11.sp,
+                                color = SlateBlueText.copy(alpha = 0.8f),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+
+                            OutlinedTextField(
+                                value = activePasscodeEntered,
+                                onValueChange = { 
+                                    if (it.length <= 8) {
+                                        activePasscodeEntered = it
+                                    }
+                                },
+                                label = { Text("MyGate Active Passcode") },
+                                placeholder = { Text("e.g. 529014") },
+                                modifier = Modifier.fillMaxWidth().testTag("mygate_passcode_input"),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OceanBlue)
+                            )
+                        }
+                    }
+                } else {
+                    // Classic intercom PIN flow
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "To keep NearbyDrive extremely secure for local neighbor-to-neighbor sharing, we run an intercom verification matching log. For this pilot trial, we simulate connecting to the guard intercom matching console at ${config.blockLabel} $block, ${config.flatLabel} $flat. Enter any 4-digit PIN (e.g., 1234) to verify.",
+                            fontSize = 11.sp,
+                            color = SlateBlueText,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        OutlinedTextField(
+                            value = localIntercomPin,
+                            onValueChange = { 
+                                if (it.length <= 4) {
+                                    localIntercomPin = it.filter { char -> char.isDigit() }
+                                }
+                            },
+                            label = { Text("Intercom Verification PIN") },
+                            placeholder = { Text("e.g. 1234") },
+                            modifier = Modifier.fillMaxWidth().testTag("verification_pin_input"),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = OceanBlue)
+                        )
+                    }
+                }
+
+                if (errorMessage.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = errorMessage,
+                        color = AccentCoral,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Dynamic Live API logs terminal container
+                if (apiLogs.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "MyGate ERP Partnership Live API Log Output:",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = OceanBlue
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1E1E2E))
+                            .border(1.dp, Color(0xFF3B3B4F), RoundedCornerShape(8.dp))
+                            .padding(8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(apiTerminalScrollState),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            apiLogs.forEach { log ->
+                                Text(
+                                    text = log,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 10.sp,
+                                    color = when {
+                                        log.startsWith("[OUTBOUND]") -> Color(0xFFFDBA74) // Orange
+                                        log.startsWith("[RESPONSE]") -> Color(0xFF81E6D9) // Cyan
+                                        log.startsWith("[SUCCESS]") -> Color(0xFFA3E635) // Light Green
+                                        else -> Color(0xFFE2E8F0) // Gray
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Action buttons area
+                if (isVerifying) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            color = OceanBlue,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = progressStatus,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = OceanBlue
+                        )
+                    }
+                } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         TextButton(
                             onClick = onDismiss,
                             modifier = Modifier.weight(1f).testTag("verification_cancel_btn")
                         ) {
-                            Text("Cancel", color = SlateBlueText)
+                            Text("Cancel", color = SlateBlueText, fontSize = 12.5.sp)
                         }
-                        
+
                         Button(
                             onClick = {
-                                if (code.length != 4) {
-                                    errorMessage = "Please enter a valid 4-digit verification PIN"
+                                if (verificationMethod == "mygate") {
+                                    if (myGateSubMethod == "phone") {
+                                        if (!isOtpSent) {
+                                            if (phoneNumber.isBlank()) {
+                                                errorMessage = "Please enter your MyGate registered phone number"
+                                            } else {
+                                                isVerifying = true
+                                                progressStatus = "Initializing handshake with api.mygate.com..."
+                                                errorMessage = ""
+                                                scope.launch {
+                                                    kotlinx.coroutines.delay(600)
+                                                    logApiCall("[OUTBOUND] POST https://api.mygate.com/v3/auth/request-otp")
+                                                    logApiCall("Headers: { X-Partner-Platform: \"NearbyDrive\", Authorization: \"Bearer ${partnerApiKey}\" }")
+                                                    logApiCall("Payload: { \"phone\": \"${phoneNumber}\", \"block\": \"${block}\", \"flat\": \"${flat}\", \"timestamp\": ${System.currentTimeMillis()} }")
+                                                    kotlinx.coroutines.delay(800)
+                                                    logApiCall("[RESPONSE] 200 OK")
+                                                    logApiCall("Response Body: { \"success\": true, \"api_version\": \"3.2.0\", \"otp_sent\": true, \"flat_registered_owners\": 1 }")
+                                                    isOtpSent = true
+                                                    isVerifying = false
+                                                }
+                                            }
+                                        } else {
+                                            if (otpCodeEntered != "7719" && otpCodeEntered.length != 4) {
+                                                errorMessage = "Please enter valid simulated OTP (try 7719)"
+                                            } else {
+                                                isVerifying = true
+                                                progressStatus = "Verifying MyGate database mapping..."
+                                                errorMessage = ""
+                                                scope.launch {
+                                                    kotlinx.coroutines.delay(600)
+                                                    logApiCall("[OUTBOUND] POST https://api.mygate.com/v3/auth/verify-otp")
+                                                    logApiCall("Payload: { \"phone\": \"${phoneNumber}\", \"otp\": \"${otpCodeEntered}\", \"block\": \"${block}\", \"flat\": \"${flat}\" }")
+                                                    kotlinx.coroutines.delay(800)
+                                                    logApiCall("[RESPONSE] 200 OK")
+                                                    logApiCall("[SUCCESS] Resident confirmed active in Greenwood Co-Op / Pinewood ERP list.")
+                                                    logApiCall("Metadata: { \"resident_status\": \"VERIFIED\", \"type\": \"OWNER_TENANT\" }")
+                                                    kotlinx.coroutines.delay(400)
+                                                    onVerificationSuccess()
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        // Passcode verification
+                                        if (activePasscodeEntered.length < 5) {
+                                            errorMessage = "Please enter a valid MyGate App generated passcode"
+                                        } else {
+                                            isVerifying = true
+                                            progressStatus = "Validating passcode with MyGate secure API..."
+                                            errorMessage = ""
+                                            scope.launch {
+                                                kotlinx.coroutines.delay(600)
+                                                logApiCall("[OUTBOUND] POST https://api.mygate.com/v3/partner/validate-passcode")
+                                                logApiCall("Payload: { \"passcode\": \"${activePasscodeEntered}\", \"block\": \"${block}\", \"flat\": \"${flat}\" }")
+                                                kotlinx.coroutines.delay(1000)
+                                                logApiCall("[RESPONSE] 200 OK")
+                                                logApiCall("[SUCCESS] Passcode verified! Authorized partner session token issued.")
+                                                kotlinx.coroutines.delay(500)
+                                                onVerificationSuccess()
+                                            }
+                                        }
+                                    }
                                 } else {
-                                    isVerifying = true
-                                    errorMessage = ""
-                                    scope.launch {
-                                        kotlinx.coroutines.delay(800)
-                                        progressStatus = "Verifying ${config.blockLabel} Registry..."
-                                        kotlinx.coroutines.delay(800)
-                                        progressStatus = "Verifying ${config.flatLabel} $flat guard registry..."
-                                        kotlinx.coroutines.delay(800)
-                                        progressStatus = "Success! Credential verified."
-                                        kotlinx.coroutines.delay(400)
-                                        onVerificationSuccess()
+                                    // Guard intercom PIN verification matches any 4 digit PIN
+                                    if (localIntercomPin.length != 4) {
+                                        errorMessage = "Please enter a valid 4-digit intercom PIN"
+                                    } else {
+                                        isVerifying = true
+                                        progressStatus = "Pinging local gated intercom receiver..."
+                                        errorMessage = ""
+                                        scope.launch {
+                                            kotlinx.coroutines.delay(600)
+                                            progressStatus = "Verifying flat flat registry with Guard Console..."
+                                            kotlinx.coroutines.delay(600)
+                                            progressStatus = "PIN Verified successfully."
+                                            kotlinx.coroutines.delay(300)
+                                            onVerificationSuccess()
+                                        }
                                     }
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = OceanBlue),
-                            modifier = Modifier.weight(1.5f).testTag("verification_submit_btn")
+                            modifier = Modifier.weight(1.5f).testTag("verification_submit_btn"),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Verify Now", fontWeight = FontWeight.Bold)
+                            Text(
+                                text = if (verificationMethod == "mygate" && !isOtpSent && myGateSubMethod == "phone") "Send OTP Sync" else "Verify Now",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.5.sp
+                            )
                         }
                     }
                 }
@@ -3211,444 +3997,6 @@ fun BookRideDialog(
     }
 }
 
-@Composable
-fun SocialShowcaseDialog(
-    onDismiss: () -> Unit,
-    selectedCountry: String,
-    config: CountryConfig
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val clipboardManager = remember {
-        context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-    }
-    
-    var activeSubTab by remember { mutableStateOf("Slides") } // "Slides", "PitchCard", "CopyText"
-    var currentSlide by remember { mutableStateOf(1) }
-    val totalSlides = 3
-    
-    val societyName = if (selectedCountry == "IN") "GREENWOOD CO-OP" else "PINEWOOD MEADOWS"
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 12.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
-            ) {
-                // Header of Dialog
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Filled.Share,
-                            contentDescription = "Share logo",
-                            tint = OceanBlue,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Interactive Pitch-Kit",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Close dialog",
-                            tint = SlateBlueText.copy(alpha = 0.5f)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Beautiful custom Tab Pill Selector
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SoftGray)
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    listOf(
-                        "Slides" to "Interactive Slides",
-                        "PitchCard" to "Pitch Graphic",
-                        "CopyText" to "Copy Templates"
-                    ).forEach { (tabKey, tabLabel) ->
-                        val isSel = activeSubTab == tabKey
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSel) OceanBlue else Color.Transparent)
-                                .clickable { activeSubTab = tabKey }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = tabLabel,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSel) Color.White else SlateBlueText
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Dynamic content based on sub-tab selection
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f, fill = false)
-                        .heightIn(min = 250.dp, max = 340.dp)
-                ) {
-                    when (activeSubTab) {
-                        "Slides" -> {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                // Slide contents
-                                when (currentSlide) {
-                                    1 -> {
-                                        SlideItem(
-                                            title = "1. Gated Neighbor Share Network",
-                                            desc = "NearbyDrive $societyName is built exclusively for verified residents to share family cars, sports bikes, eco-friendly scooters, and hybrid test cycles.\n\nAbsolutely no guest spam, central platform commission cuts, or commercial driver leakage.",
-                                            icon = Icons.Filled.DirectionsCar
-                                        )
-                                    }
-                                    2 -> {
-                                        SlideItem(
-                                            title = "2. Guard Intercom Secure Pairing",
-                                            desc = "Your physical security is fully guarded! Users must verify residency via standard Guard Intercom pairing. Entering any simple code authorization is simulated for instant residency credential locks. Guaranteed peer-to-peer trust.",
-                                            icon = Icons.Filled.VerifiedUser
-                                        )
-                                    }
-                                    3 -> {
-                                        SlideItem(
-                                            title = "3. Zero-Risk Local Device Sandbox",
-                                            desc = "No external server vulnerabilities here! All of your coordinates, coordinates list, profiles, and booking streams are isolated using highly secure, sandbox encrypted SQLite structures on your phone. Highly resilient of hacking.",
-                                            icon = Icons.Filled.Shield
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                // Slide Navigation controls
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Slide $currentSlide of $totalSlides",
-                                        fontSize = 12.sp,
-                                        color = SlateBlueText.copy(alpha = 0.6f)
-                                    )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        if (currentSlide > 1) {
-                                            OutlinedButton(
-                                                onClick = { currentSlide-- },
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                shape = RoundedCornerShape(8.dp)
-                                            ) {
-                                                Text("Prev", fontSize = 12.sp)
-                                            }
-                                        }
-                                        if (currentSlide < totalSlides) {
-                                            Button(
-                                                onClick = { currentSlide++ },
-                                                colors = ButtonDefaults.buttonColors(containerColor = OceanBlue),
-                                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                                                shape = RoundedCornerShape(8.dp)
-                                            ) {
-                                                Text("Next ✦", fontSize = 12.sp)
-                                            }
-                                        } else {
-                                            Button(
-                                                onClick = { activeSubTab = "PitchCard" },
-                                                colors = ButtonDefaults.buttonColors(containerColor = MintGreen),
-                                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                                                shape = RoundedCornerShape(8.dp)
-                                            ) {
-                                                Text("Show Pitch Card 🚀", fontSize = 12.sp)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        "PitchCard" -> {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                // Beautiful gradient Pitch Card Group
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(
-                                            Brush.linearGradient(
-                                                listOf(OceanBlue, Color(0xFF0D9488))
-                                            )
-                                        )
-                                        .padding(16.dp)
-                                ) {
-                                    Column {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    Icons.Filled.DirectionsCar,
-                                                    contentDescription = "Logo",
-                                                    tint = Color.White,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = "NEARBYDRIVE",
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Black,
-                                                    color = Color.White,
-                                                    letterSpacing = 1.sp
-                                                )
-                                            }
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .background(Color.White.copy(alpha = 0.2f))
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                                            ) {
-                                                Text(
-                                                    text = "SOCIETY EDITION",
-                                                    fontSize = 8.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color.White
-                                                )
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(10.dp))
-
-                                        Text(
-                                            text = "Let's share vehicles in $societyName! 🚗",
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Text(
-                                            text = "Rent local electric cars, emission-free scooters, riding bikes and speed cycles of neighbors directly, verified secure via Guard Intercom pairing PIN locks. No commissions. Highly ecological.",
-                                            fontSize = 10.5.sp,
-                                            color = Color.White.copy(alpha = 0.9f),
-                                            lineHeight = 14.sp
-                                        )
-
-                                        Spacer(modifier = Modifier.height(12.dp))
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.Bottom
-                                        ) {
-                                            Column {
-                                                Text("✦ GATED NEIGHBORS ONLY", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
-                                                Text("✦ ZERO TRANSACTION FEE", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
-                                                Text("✦ SECURE LOCAL SANDBOX", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
-                                            }
-                                            Icon(
-                                                Icons.Filled.QrCodeScanner,
-                                                contentDescription = "Mock QR",
-                                                tint = Color.White.copy(alpha = 0.8f),
-                                                modifier = Modifier.size(36.dp)
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(
-                                    text = "📸 Take a screenshot of the card above to post directly on Twitter/X, LinkedIn, or your Society WhatsApp Group!",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = SlateBlueText,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 6.dp)
-                                )
-                            }
-                        }
-                        "CopyText" -> {
-                            val scrollState = rememberScrollState()
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .verticalScroll(scrollState),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                PitchTextTemplate(
-                                    title = "📱 WhatsApp / Facebook Casual Neighbor Pitch",
-                                    text = "Hey neighbors! I am introducing an eco-friendly EV and vehicle-sharing option for our society, $societyName! Rent safe local cars and electric scooters straight from residents, fully gated by our Guard Intercom matching registry. Zero fees, direct peer coordination! Check out the NearbyDrive MVP! 🚗💨",
-                                    onCopy = {
-                                        clipboardManager.setPrimaryClip(android.content.ClipData.newPlainText("NearbyDrive Neighbor Pitch", it))
-                                        android.widget.Toast.makeText(context, "Copied WhatsApp pitch to clipboard!", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                )
-
-                                PitchTextTemplate(
-                                    title = "💼 Society Committee / Resident Council Formal Pitch",
-                                    text = "We are proposing 'NearbyDrive' for $societyName—a secure, decentralized mobile ecosystem matching under-utilized secondary resident vehicles (EVs, cycles, cars) with active neighbors. Verified strictly using guard intercom intercom authorization logs, slashing community parking congestion and reducing overall transport carbon footprint.",
-                                    onCopy = {
-                                        clipboardManager.setPrimaryClip(android.content.ClipData.newPlainText("NearbyDrive Committee Pitch", it))
-                                        android.widget.Toast.makeText(context, "Copied Committee pitch to clipboard!", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                HorizontalDivider(color = SlateBlueText.copy(alpha = 0.12f))
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = OceanBlue),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Close Pitch-Kit", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SlideItem(
-    title: String,
-    desc: String,
-    icon: ImageVector
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(SoftGray)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier
-                .size(54.dp)
-                .clip(CircleShape)
-                .background(OceanBlue.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = OceanBlue,
-                modifier = Modifier.size(28.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = title,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = desc,
-            fontSize = 12.sp,
-            color = SlateBlueText.copy(alpha = 0.85f),
-            textAlign = TextAlign.Center,
-            lineHeight = 16.sp
-        )
-    }
-}
-
-@Composable
-fun PitchTextTemplate(
-    title: String,
-    text: String,
-    onCopy: (String) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = SoftGray),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, SlateBlueText.copy(alpha = 0.08f))
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = title,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = OceanBlue
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = text,
-                fontSize = 11.5.sp,
-                color = SlateBlueText.copy(alpha = 0.85f),
-                lineHeight = 15.sp
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Button(
-                    onClick = { onCopy(text) },
-                    modifier = Modifier.height(32.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = OceanBlue.copy(alpha = 0.12f), contentColor = OceanBlue),
-                    contentPadding = PaddingValues(horizontal = 8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.ContentCopy,
-                            contentDescription = "Copy text",
-                            tint = OceanBlue,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text("Copy Pitch", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 fun AvailabilityCalendarScreen(

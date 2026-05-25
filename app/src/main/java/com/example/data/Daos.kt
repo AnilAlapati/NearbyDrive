@@ -53,3 +53,21 @@ interface ProfileDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateProfile(profile: ProfileEntity)
 }
+
+@Dao
+interface ReviewDao {
+    @Query("SELECT * FROM reviews ORDER BY timestamp DESC")
+    fun getAllReviewsFlow(): Flow<List<ReviewEntity>>
+
+    @Query("SELECT * FROM reviews WHERE vehicleId = :vehicleId ORDER BY timestamp DESC")
+    fun getReviewsForVehicleFlow(vehicleId: Long): Flow<List<ReviewEntity>>
+
+    @Query("SELECT * FROM reviews WHERE revieweeName = :name ORDER BY timestamp DESC")
+    fun getReviewsForUserFlow(name: String): Flow<List<ReviewEntity>>
+
+    @Query("SELECT * FROM reviews WHERE bookingId = :bookingId")
+    suspend fun getReviewsForBooking(bookingId: Long): List<ReviewEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertReview(review: ReviewEntity): Long
+}

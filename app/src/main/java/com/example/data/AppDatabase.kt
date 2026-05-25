@@ -5,11 +5,12 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [VehicleEntity::class, BookingEntity::class, ProfileEntity::class], version = 7, exportSchema = false)
+@Database(entities = [VehicleEntity::class, BookingEntity::class, ProfileEntity::class, ReviewEntity::class], version = 8, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun vehicleDao(): VehicleDao
     abstract fun bookingDao(): BookingDao
     abstract fun profileDao(): ProfileDao
+    abstract fun reviewDao(): ReviewDao
 
     companion object {
         @Volatile

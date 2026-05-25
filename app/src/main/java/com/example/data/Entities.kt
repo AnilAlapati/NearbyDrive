@@ -42,6 +42,22 @@ data class BookingEntity(
     val bookingDate: String = "Today",
     val startHour: Int = 9,
     val status: String = "Requested", // "Requested", "Approved", "Completed", "Cancelled"
+    val timestamp: Long = System.currentTimeMillis(),
+    val isRenterReviewed: Boolean = false,
+    val isOwnerReviewed: Boolean = false
+)
+
+@Entity(tableName = "reviews")
+data class ReviewEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val bookingId: Long,
+    val vehicleId: Long,
+    val vehicleModel: String,
+    val reviewerName: String,
+    val revieweeName: String,
+    val reviewerRole: String, // "Renter" or "Owner"
+    val rating: Int, // 1 to 5 stars
+    val comment: String = "",
     val timestamp: Long = System.currentTimeMillis()
 )
 

@@ -6,6 +6,23 @@ class VehicleRepository(private val database: AppDatabase) {
     val allVehicles: Flow<List<VehicleEntity>> = database.vehicleDao().getAllVehicles()
     val allBookings: Flow<List<BookingEntity>> = database.bookingDao().getAllBookings()
     val profile: Flow<ProfileEntity?> = database.profileDao().getProfileFlow()
+    val allReviews: Flow<List<ReviewEntity>> = database.reviewDao().getAllReviewsFlow()
+
+    fun getReviewsForVehicleFlow(vehicleId: Long): Flow<List<ReviewEntity>> {
+        return database.reviewDao().getReviewsForVehicleFlow(vehicleId)
+    }
+
+    fun getReviewsForUserFlow(name: String): Flow<List<ReviewEntity>> {
+        return database.reviewDao().getReviewsForUserFlow(name)
+    }
+
+    suspend fun addReview(review: ReviewEntity): Long {
+        return database.reviewDao().insertReview(review)
+    }
+
+    suspend fun updateBooking(booking: BookingEntity) {
+        database.bookingDao().updateBooking(booking)
+    }
 
     suspend fun getProfile(): ProfileEntity? {
         return database.profileDao().getProfile()

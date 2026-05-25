@@ -13,6 +13,7 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
     val allVehicles: StateFlow<List<VehicleEntity>>
     val allBookings: StateFlow<List<BookingEntity>>
     val profile: StateFlow<ProfileEntity?>
+    val allReviews: StateFlow<List<ReviewEntity>>
 
     // Persistent Country Selection
     private val prefs = application.getSharedPreferences("nearby_drive_prefs", Context.MODE_PRIVATE)
@@ -55,6 +56,12 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
         )
 
         allBookings = repository.allBookings.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+        allReviews = repository.allReviews.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
@@ -435,6 +442,48 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
                     } catch (e: Throwable) {
                         android.util.Log.e("NearbyDriveVM", "Firestore push vehicle update error: ${e.message}", e)
                     }
+                }
+            }
+        }
+    }
+
+    fun submitReview(
+        bookingId: Long,
+        vehicleId: Long,
+        vehicleModel: String,
+        reviewerName: String,
+        revieweeName: String,
+        reviewerRole: String, // "Renter" or "Owner"
+        rating: Int,
+        comment: String
+    ) {
+        viewModelScope.launch {
+            val review = ReviewEntity(
+                bookingId = bookingId,
+                vehicleId = vehicleId,
+                vehicleModel = vehicleModel,
+                reviewerName = reviewerName,
+                revieweeName = revieweeName,
+                reviewerRole = reviewerRole,
+                rating = rating,
+                comment = comment
+            )
+            repository.addReview(review)
+            
+            // Also update the states in BookingEntity
+            val bookings = repository.allBookings.first()
+            val match = bookings.find { it.id == bookingId }
+            if (match != null) {
+                val updatedBooking = if (reviewerRole == "Renter") {
+                    match.copy(isRenterReviewed = true)
+                } else {
+                    match.copy(isOwnerReviewed = true)
+                }
+                repository.updateBooking(updatedBooking)
+                try {
+                    FirebaseSyncManager.pushBookingToCloud(updatedBooking)
+                } catch (e: Throwable) {
+                    android.util.Log.e("NearbyDriveVM", "Failed to sync reviewed booking to cloud: ${e.message}")
                 }
             }
         }
