@@ -33,15 +33,19 @@ class VehicleRepository(private val database: AppDatabase) {
     }
 
     suspend fun addVehicle(vehicle: VehicleEntity): Long {
-        return database.vehicleDao().insertVehicle(vehicle)
+        val id = database.vehicleDao().insertVehicle(vehicle)
+        FirebaseSyncManager.pushVehicleToCloud(vehicle.copy(id = id))
+        return id
     }
 
     suspend fun updateVehicle(vehicle: VehicleEntity) {
         database.vehicleDao().updateVehicle(vehicle)
+        FirebaseSyncManager.pushVehicleToCloud(vehicle)
     }
 
     suspend fun deleteVehicle(vehicle: VehicleEntity) {
         database.vehicleDao().deleteVehicle(vehicle)
+        FirebaseSyncManager.deleteVehicleFromCloud(vehicle)
     }
 
     suspend fun getVehicleById(id: Long): VehicleEntity? {
@@ -49,7 +53,9 @@ class VehicleRepository(private val database: AppDatabase) {
     }
 
     suspend fun createBooking(booking: BookingEntity): Long {
-        return database.bookingDao().insertBooking(booking)
+        val id = database.bookingDao().insertBooking(booking)
+        FirebaseSyncManager.pushBookingToCloud(booking.copy(id = id))
+        return id
     }
 
     suspend fun updateBookingStatus(bookingId: Long, status: String) {

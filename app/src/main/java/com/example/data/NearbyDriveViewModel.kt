@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 
 class NearbyDriveViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: VehicleRepository
@@ -68,7 +69,7 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
         )
 
         // Seed initial data if database is empty
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repository.allVehicles.first().let { currentList ->
                 if (currentList.isEmpty()) {
                     seedSampleData()
