@@ -18,6 +18,7 @@ data class VehicleEntity(
     val desc: String,
     val status: String = "Available", // "Available", "Rented"
     val isEv: Boolean = false,
+    val imageUri: String? = null,
     val timestamp: Long = System.currentTimeMillis()
 )
 

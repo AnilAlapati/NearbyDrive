@@ -353,22 +353,12 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
                 isEv = isEv
             )
             val newId = repository.addVehicle(newVehicle)
-            try {
-                FirebaseSyncManager.pushVehicleToCloud(newVehicle.copy(id = newId))
-            } catch (e: Throwable) {
-                android.util.Log.e("NearbyDriveVM", "Firestore push vehicle error: ${e.message}", e)
-            }
         }
     }
 
     fun deleteVehicle(vehicle: VehicleEntity) {
         viewModelScope.launch {
             repository.deleteVehicle(vehicle)
-            try {
-                FirebaseSyncManager.deleteVehicleFromCloud(vehicle)
-            } catch (e: Throwable) {
-                android.util.Log.e("NearbyDriveVM", "Firestore delete vehicle error: ${e.message}", e)
-            }
         }
     }
 
@@ -403,11 +393,6 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
                 status = "Requested"
             )
             val newId = repository.createBooking(booking)
-            try {
-                FirebaseSyncManager.pushBookingToCloud(booking.copy(id = newId))
-            } catch (e: Throwable) {
-                android.util.Log.e("NearbyDriveVM", "Firestore push booking error: ${e.message}", e)
-            }
         }
     }
 
@@ -415,11 +400,6 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             repository.updateBookingStatus(booking.id, nextStatus)
             val updatedBooking = booking.copy(status = nextStatus)
-            try {
-                FirebaseSyncManager.pushBookingToCloud(updatedBooking)
-            } catch (e: Throwable) {
-                android.util.Log.e("NearbyDriveVM", "Firestore push booking update error: ${e.message}", e)
-            }
             
             // If rental is approved, update the vehicle status accordingly
             if (nextStatus == "Approved") {
@@ -427,22 +407,12 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
                 if (vehicle != null) {
                     val updatedVehicle = vehicle.copy(status = "Rented")
                     repository.updateVehicle(updatedVehicle)
-                    try {
-                        FirebaseSyncManager.pushVehicleToCloud(updatedVehicle)
-                    } catch (e: Throwable) {
-                        android.util.Log.e("NearbyDriveVM", "Firestore push vehicle update error: ${e.message}", e)
-                    }
                 }
             } else if (nextStatus == "Completed" || nextStatus == "Cancelled") {
                 val vehicle = repository.getVehicleById(booking.vehicleId)
                 if (vehicle != null) {
                     val updatedVehicle = vehicle.copy(status = "Available")
                     repository.updateVehicle(updatedVehicle)
-                    try {
-                        FirebaseSyncManager.pushVehicleToCloud(updatedVehicle)
-                    } catch (e: Throwable) {
-                        android.util.Log.e("NearbyDriveVM", "Firestore push vehicle update error: ${e.message}", e)
-                    }
                 }
             }
         }
@@ -470,23 +440,6 @@ class NearbyDriveViewModel(application: Application) : AndroidViewModel(applicat
                 comment = comment
             )
             repository.addReview(review)
-            
-            // Also update the states in BookingEntity
-            val bookings = repository.allBookings.first()
-            val match = bookings.find { it.id == bookingId }
-            if (match != null) {
-                val updatedBooking = if (reviewerRole == "Renter") {
-                    match.copy(isRenterReviewed = true)
-                } else {
-                    match.copy(isOwnerReviewed = true)
-                }
-                repository.updateBooking(updatedBooking)
-                try {
-                    FirebaseSyncManager.pushBookingToCloud(updatedBooking)
-                } catch (e: Throwable) {
-                    android.util.Log.e("NearbyDriveVM", "Failed to sync reviewed booking to cloud: ${e.message}")
-                }
-            }
         }
     }
 

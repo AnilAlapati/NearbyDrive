@@ -231,6 +231,7 @@ object FirebaseSyncManager {
                 desc = map["desc"] as? String ?: "",
                 status = map["status"] as? String ?: "Available",
                 isEv = map["isEv"] as? Boolean ?: false,
+                imageUri = map["imageUri"] as? String,
                 timestamp = (map["timestamp"] as? Number)?.toLong() ?: System.currentTimeMillis()
             )
         } catch (e: Exception) {
@@ -281,6 +282,7 @@ object FirebaseSyncManager {
             "desc" to v.desc,
             "status" to v.status,
             "isEv" to v.isEv,
+            "imageUri" to (v.imageUri ?: ""),
             "timestamp" to v.timestamp
         )
     }
